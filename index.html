@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classic Pac-Man Game</title>
+    <title>Simple Pac-Man Game</title>
     <style>
         body {
             display: flex;
@@ -16,84 +16,57 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
         }
-        
+
         #game-container {
             position: relative;
-            width: 560px;
-            height: 620px;
+            width: 420px;
+            height: 500px;
             border: 4px solid #00F;
             background-color: #000;
         }
-        
+
         #score {
             color: white;
             font-size: 24px;
             margin-bottom: 10px;
         }
-        
+
         .pacman {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             z-index: 2;
             background-color: transparent;
             background-image: url('icon/wpface.png');
             background-size: cover;
         }
-        
+
         .ghost {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             background-color: transparent;
             background-image: none; /* This will be set by JavaScript */
             background-size: cover;
             z-index: 1;
         }
-        
+
         .pellet {
             position: absolute;
-            width: 8px;
-            height: 8px;
+            width: 15px;
+            height: 15px;
             background-color: transparent;
             background-image: url('icon/book.png');
             background-size: cover;
+
         }
-        
-        .power-pellet {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background-color: transparent;
-            background-image: url('icon/book.png');
-            background-size: cover;
-        }
-        
+
         .wall {
             position: absolute;
             background-color: #00F;
         }
-        
-        #ghost-house {
-            position: absolute;
-            width: 80px;
-            height: 40px;
-            border: 2px solid #00F;
-            background-color: transparent;
-            top: 260px;
-            left: 240px;
-        }
-        
-        #ghost-door {
-            position: absolute;
-            width: 20px;
-            height: 2px;
-            background-color: #FFA500;
-            top: 260px;
-            left: 270px;
-        }
-        
+
         #game-over, #game-start {
             position: absolute;
             top: 50%;
@@ -107,7 +80,7 @@
             border-radius: 10px;
             display: none;
         }
-        
+
         button {
             background-color: #FFFF00;
             border: none;
@@ -133,7 +106,7 @@
             <button id="restart-button">Play Again</button>
         </div>
     </div>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Game variables
@@ -144,144 +117,107 @@
             const finalScoreDisplay = document.getElementById('final-score');
             const startButton = document.getElementById('start-button');
             const restartButton = document.getElementById('restart-button');
-            
+
             let score = 0;
             let pacman;
             let ghosts = [];
             let pellets = [];
-            let powerPellets = [];
             let walls = [];
             let gameRunning = false;
             let gameInterval;
-            
-            const containerWidth = 560;
-            const containerHeight = 620;
-            const cellSize = 20; // Size of one maze cell
-            const pacmanSize = 20;
-            const pelletSize = 8;
-            const powerPelletSize = 12;
-            const ghostSize = 20;
-            
+
+            const containerWidth = 420;
+            const containerHeight = 500;
+            const pacmanSize = 30;
+            const pelletSize = 10;
+            const ghostSize = 30;
+
             // Direction variables
             let direction = 'right';
             let nextDirection = 'right';
-            const speed = 2;
-            const ghostSpeed = 1.5;
-            
-            // Show start screen initially
-            gameStartScreen.style.display = 'block';
-            
+            const speed = 3;
+            const ghostSpeed = 2;
+
+            // Ghost colors
+            const ghostColors = ['#FF0000', '#00FFFF', '#FFB8FF', '#FFB852'];
+
             // Start and restart game
             startButton.addEventListener('click', startGame);
             restartButton.addEventListener('click', startGame);
-            
-            // Maze definition as a 2D array
-            // 0: empty path, 1: wall, 2: pellet, 3: power pellet, 4: ghost house
-            const mazeTemplate = [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,3,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,3,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,4,4,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,0,2,0,0,0,1,4,4,4,4,4,4,1,0,0,0,2,0,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,3,2,2,1,1,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,1,1,2,2,3,1],
-                [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ];
-            
+
+            // Show start screen initially
+            gameStartScreen.style.display = 'block';
+
             function startGame() {
                 // Reset game state
                 gameContainer.innerHTML = '';
                 gameContainer.appendChild(gameOverScreen);
                 gameContainer.appendChild(gameStartScreen);
-                
+
                 gameOverScreen.style.display = 'none';
                 gameStartScreen.style.display = 'none';
-                
+
                 score = 0;
                 scoreDisplay.textContent = `Score: ${score}`;
                 ghosts = [];
                 pellets = [];
-                powerPellets = [];
                 walls = [];
                 gameRunning = true;
-                
-                // Create the maze based on the template
-                createMaze();
-                
+
                 // Create pacman
                 pacman = document.createElement('div');
                 pacman.className = 'pacman';
-                pacman.style.left = `${14 * cellSize}px`;
-                pacman.style.top = `${23 * cellSize}px`;
+                pacman.style.left = '30px';
+                pacman.style.top = '30px';
                 gameContainer.appendChild(pacman);
-                
-                // Create ghost house
-                createGhostHouse();
-                
+
+                // Create walls
+                createWalls();
+
+                // Create pellets
+                createPellets();
+
                 // Create ghosts
                 createGhosts();
-                
+
                 // Start game loop
                 if (gameInterval) clearInterval(gameInterval);
                 gameInterval = setInterval(updateGame, 30);
-                
+
                 // Listen for keyboard input
                 document.addEventListener('keydown', handleKeyPress);
             }
-            
-            function createMaze() {
-                for (let y = 0; y < mazeTemplate.length; y++) {
-                    for (let x = 0; x < mazeTemplate[y].length; x++) {
-                        const cell = mazeTemplate[y][x];
-                        const cellX = x * cellSize;
-                        const cellY = y * cellSize;
-                        
-                        if (cell === 1) {
-                            // Wall
-                            createWall(cellX, cellY, cellSize, cellSize);
-                        } else if (cell === 2) {
-                            // Regular pellet
-                            createPellet(cellX + (cellSize - pelletSize) / 2, cellY + (cellSize - pelletSize) / 2);
-                        } else if (cell === 3) {
-                            // Power pellet
-                            createPowerPellet(cellX + (cellSize - powerPelletSize) / 2, cellY + (cellSize - powerPelletSize) / 2);
-                        }
-                    }
-                }
+
+            function createWalls() {
+                // Create border walls
+                const wallThickness = 10;
+
+                // Top wall
+                createWall(0, 0, containerWidth, wallThickness);
+
+                // Bottom wall
+                createWall(0, containerHeight - wallThickness, containerWidth, wallThickness);
+
+                // Left wall
+                createWall(0, 0, wallThickness, containerHeight);
+
+                // Right wall
+                createWall(containerWidth - wallThickness, 0, wallThickness, containerHeight);
+
+                // Add some internal walls
+                createWall(100, 100, 220, wallThickness);
+                createWall(100, 100, wallThickness, 100);
+                createWall(320, 100, wallThickness, 100);
+
+                createWall(100, 300, wallThickness, 100);
+                createWall(100, 400, 220, wallThickness);
+                createWall(320, 300, wallThickness, 100);
+
+                createWall(150, 200, 120, wallThickness);
+                createWall(150, 200, wallThickness, 100);
+                createWall(270, 200, wallThickness, 100);
             }
-            
-            function createGhostHouse() {
-                const ghostHouse = document.createElement('div');
-                ghostHouse.id = 'ghost-house';
-                gameContainer.appendChild(ghostHouse);
-                
-                const ghostDoor = document.createElement('div');
-                ghostDoor.id = 'ghost-door';
-                gameContainer.appendChild(ghostDoor);
-            }
-            
+
             function createWall(x, y, width, height) {
                 const wall = document.createElement('div');
                 wall.className = 'wall';
@@ -297,7 +233,21 @@
                     height
                 });
             }
-            
+
+            function createPellets() {
+                // Create a grid of pellets, avoiding walls
+                const gridSize = 40;
+
+                for (let x = 30; x < containerWidth; x += gridSize) {
+                    for (let y = 30; y < containerHeight; y += gridSize) {
+                        // Check if position collides with a wall
+                        if (!isCollidingWithWalls(x, y, pelletSize, pelletSize)) {
+                            createPellet(x, y);
+                        }
+                    }
+                }
+            }
+
             function createPellet(x, y) {
                 const pellet = document.createElement('div');
                 pellet.className = 'pellet';
@@ -311,31 +261,16 @@
                     eaten: false
                 });
             }
-            
-            function createPowerPellet(x, y) {
-                const powerPellet = document.createElement('div');
-                powerPellet.className = 'power-pellet';
-                powerPellet.style.left = `${x}px`;
-                powerPellet.style.top = `${y}px`;
-                gameContainer.appendChild(powerPellet);
-                powerPellets.push({
-                    x,
-                    y,
-                    element: powerPellet,
-                    eaten: false
-                });
-            }
-            
+
             function createGhosts() {
-                // Position ghosts in the ghost house
+                // Create 4 ghosts at different corners
                 const positions = [
-                    { x: 240, y: 260 },  // Center ghost house
-                    { x: 260, y: 260 },
-                    { x: 280, y: 260 },
-                    { x: 300, y: 260 }
+                    { x: containerWidth - 60, y: 30 },
+                    { x: containerWidth - 60, y: containerHeight - 60 },
+                    { x: 30, y: containerHeight - 60 },
+                    { x: containerWidth / 2, y: containerHeight / 2 }
                 ];
-                
-                // Ghost images
+
                 for (let i = 0; i < 4; i++) {
                     const ghost = document.createElement('div');
                     ghost.className = 'ghost';
@@ -344,71 +279,59 @@
                     ghost.style.backgroundColor = 'transparent';
                     ghost.style.backgroundImage = `url('icon/ghost${i+1}.png')`;
                     gameContainer.appendChild(ghost);
-                    
+
                     ghosts.push({
                         x: positions[i].x,
                         y: positions[i].y,
                         element: ghost,
                         direction: getRandomDirection(),
-                        inHouse: true,
-                        releaseTime: i * 5000 // Release ghosts at intervals
+                        color: ghostColors[i]
                     });
                 }
             }
-            
+
             function getRandomDirection() {
                 const directions = ['up', 'down', 'left', 'right'];
                 return directions[Math.floor(Math.random() * directions.length)];
             }
-            
+
             function updateGame() {
                 if (!gameRunning) return;
-                
+
                 // Update pacman position
                 movePacman();
-                
+
                 // Check for pellet collisions
                 checkPelletCollisions();
-                
-                // Update ghosts
-                updateGhosts();
-                
+
                 // Move ghosts
                 moveGhosts();
-                
+
                 // Check for ghost collisions
                 checkGhostCollisions();
-                
+
                 // Check if all pellets are eaten
-                if (pellets.every(pellet => pellet.eaten) && powerPellets.every(pellet => pellet.eaten)) {
+                if (pellets.every(pellet => pellet.eaten)) {
                     // You win!
                     gameOver(true);
                 }
             }
-            
-            function updateGhosts() {
-                const currentTime = Date.now();
-                const gameStartTime = currentTime - gameInterval * 30; // Approximate start time
-                
-                ghosts.forEach((ghost, index) => {
-                    if (ghost.inHouse && currentTime - gameStartTime > ghost.releaseTime) {
-                        ghost.inHouse = false;
-                        // Move ghost out of house
-                        ghost.y = 220;
-                        ghost.element.style.top = `${ghost.y}px`;
-                    }
-                });
-            }
-            
+
             function movePacman() {
+                const pacmanRect = pacman.getBoundingClientRect();
+                const gameRect = gameContainer.getBoundingClientRect();
+
                 let newX = parseInt(pacman.style.left);
                 let newY = parseInt(pacman.style.top);
-                
+
                 // Try to change direction if there's a queued direction
                 if (nextDirection !== direction) {
+                    let canChangeDirection = true;
+
+                    // Calculate potential new position
                     let testX = newX;
                     let testY = newY;
-                    
+
                     switch (nextDirection) {
                         case 'up':
                             testY -= speed;
@@ -423,13 +346,13 @@
                             testX += speed;
                             break;
                     }
-                    
+
                     // Check if new position would collide with walls
                     if (!isCollidingWithWalls(testX, testY, pacmanSize, pacmanSize)) {
                         direction = nextDirection;
                     }
                 }
-                
+
                 // Move pacman in current direction
                 switch (direction) {
                     case 'up':
@@ -445,21 +368,14 @@
                         newX += speed;
                         break;
                 }
-                
+
                 // Check wall collisions
                 if (!isCollidingWithWalls(newX, newY, pacmanSize, pacmanSize)) {
-                    // Handle tunnel wrap-around
-                    if (newX < -pacmanSize && direction === 'left') {
-                        newX = containerWidth;
-                    } else if (newX > containerWidth && direction === 'right') {
-                        newX = -pacmanSize;
-                    }
-                    
                     pacman.style.left = `${newX}px`;
                     pacman.style.top = `${newY}px`;
                 }
             }
-            
+
             function isCollidingWithWalls(x, y, width, height) {
                 for (const wall of walls) {
                     if (
@@ -473,21 +389,20 @@
                 }
                 return false;
             }
-            
+
             function checkPelletCollisions() {
                 const pacmanX = parseInt(pacman.style.left) + pacmanSize / 2;
                 const pacmanY = parseInt(pacman.style.top) + pacmanSize / 2;
-                
-                // Check regular pellets
+
                 for (const pellet of pellets) {
                     if (!pellet.eaten) {
                         const pelletX = pellet.x + pelletSize / 2;
                         const pelletY = pellet.y + pelletSize / 2;
-                        
+
                         const distance = Math.sqrt(
                             Math.pow(pacmanX - pelletX, 2) + Math.pow(pacmanY - pelletY, 2)
                         );
-                        
+
                         if (distance < (pacmanSize / 2) + (pelletSize / 2)) {
                             // Pellet eaten
                             pellet.eaten = true;
@@ -497,47 +412,18 @@
                         }
                     }
                 }
-                
-                // Check power pellets
-                for (const powerPellet of powerPellets) {
-                    if (!powerPellet.eaten) {
-                        const pelletX = powerPellet.x + powerPelletSize / 2;
-                        const pelletY = powerPellet.y + powerPelletSize / 2;
-                        
-                        const distance = Math.sqrt(
-                            Math.pow(pacmanX - pelletX, 2) + Math.pow(pacmanY - pelletY, 2)
-                        );
-                        
-                        if (distance < (pacmanSize / 2) + (powerPelletSize / 2)) {
-                            // Power pellet eaten
-                            powerPellet.eaten = true;
-                            powerPellet.element.style.display = 'none';
-                            score += 50;
-                            scoreDisplay.textContent = `Score: ${score}`;
-                            
-                            // TODO: Make ghosts vulnerable
-                        }
-                    }
-                }
             }
-            
+
             function moveGhosts() {
                 for (const ghost of ghosts) {
-                    if (ghost.inHouse) {
-                        // Ghosts in house move up and down slightly
-                        ghost.y += (Math.random() > 0.5 ? 0.5 : -0.5);
-                        ghost.element.style.top = `${ghost.y}px`;
-                        continue;
-                    }
-                    
                     let newX = ghost.x;
                     let newY = ghost.y;
-                    
-                    // Occasionally change direction randomly or at intersections
-                    if (Math.random() < 0.03 || isAtIntersection(ghost.x, ghost.y)) {
-                        ghost.direction = getSmartDirection(ghost, parseInt(pacman.style.left), parseInt(pacman.style.top));
+
+                    // Occasionally change direction randomly
+                    if (Math.random() < 0.02) {
+                        ghost.direction = getRandomDirection();
                     }
-                    
+
                     // Move ghost in current direction
                     switch (ghost.direction) {
                         case 'up':
@@ -553,182 +439,32 @@
                             newX += ghostSpeed;
                             break;
                     }
-                    
+
                     // Check wall collisions
                     if (!isCollidingWithWalls(newX, newY, ghostSize, ghostSize)) {
-                        // Handle tunnel wrap-around
-                        if (newX < -ghostSize && ghost.direction === 'left') {
-                            newX = containerWidth;
-                        } else if (newX > containerWidth && ghost.direction === 'right') {
-                            newX = -ghostSize;
-                        }
-                        
                         ghost.x = newX;
                         ghost.y = newY;
                         ghost.element.style.left = `${newX}px`;
                         ghost.element.style.top = `${newY}px`;
                     } else {
                         // Change direction if hit a wall
-                        ghost.direction = getAlternateDirection(ghost.direction);
+                        ghost.direction = getRandomDirection();
                     }
                 }
             }
-            
-            function isAtIntersection(x, y) {
-                // Check if a ghost is at a maze intersection by checking if it can move in multiple directions
-                const directions = ['up', 'down', 'left', 'right'];
-                let availableDirections = 0;
-                
-                for (const dir of directions) {
-                    let testX = x;
-                    let testY = y;
-                    
-                    switch (dir) {
-                        case 'up':
-                            testY -= cellSize;
-                            break;
-                        case 'down':
-                            testY += cellSize;
-                            break;
-                        case 'left':
-                            testX -= cellSize;
-                            break;
-                        case 'right':
-                            testX += cellSize;
-                            break;
-                    }
-                    
-                    if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
-                        availableDirections++;
-                    }
-                }
-                
-                return availableDirections > 2; // More than 2 directions means it's an intersection
-            }
-            
-            function getSmartDirection(ghost, pacmanX, pacmanY) {
-                // 80% of the time, ghosts will try to move toward Pac-Man
-                if (Math.random() < 0.8) {
-                    const dx = pacmanX - ghost.x;
-                    const dy = pacmanY - ghost.y;
-                    
-                    // Prioritize moving in the direction with the greatest distance
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        // Try horizontal movement first
-                        if (dx > 0 && canMove(ghost.x, ghost.y, 'right')) {
-                            return 'right';
-                        } else if (dx < 0 && canMove(ghost.x, ghost.y, 'left')) {
-                            return 'left';
-                        } 
-                        // If horizontal not possible, try vertical
-                        else if (dy > 0 && canMove(ghost.x, ghost.y, 'down')) {
-                            return 'down';
-                        } else if (canMove(ghost.x, ghost.y, 'up')) {
-                            return 'up';
-                        }
-                    } else {
-                        // Try vertical movement first
-                        if (dy > 0 && canMove(ghost.x, ghost.y, 'down')) {
-                            return 'down';
-                        } else if (dy < 0 && canMove(ghost.x, ghost.y, 'up')) {
-                            return 'up';
-                        } 
-                        // If vertical not possible, try horizontal
-                        else if (dx > 0 && canMove(ghost.x, ghost.y, 'right')) {
-                            return 'right';
-                        } else if (canMove(ghost.x, ghost.y, 'left')) {
-                            return 'left';
-                        }
-                    }
-                }
-                
-                // Default to random direction if can't move toward Pac-Man or if random number > 0.8
-                return getRandomValidDirection(ghost.x, ghost.y, ghost.direction);
-            }
-            
-            function canMove(x, y, direction) {
-                let testX = x;
-                let testY = y;
-                
-                switch (direction) {
-                    case 'up':
-                        testY -= ghostSpeed;
-                        break;
-                    case 'down':
-                        testY += ghostSpeed;
-                        break;
-                    case 'left':
-                        testX -= ghostSpeed;
-                        break;
-                    case 'right':
-                        testX += ghostSpeed;
-                        break;
-                }
-                
-                return !isCollidingWithWalls(testX, testY, ghostSize, ghostSize);
-            }
-            
-            function getRandomValidDirection(x, y, currentDirection) {
-                // Don't reverse direction unless necessary
-                const oppositeDirection = getOppositeDirection(currentDirection);
-                const possibleDirections = ['up', 'down', 'left', 'right'].filter(dir => dir !== oppositeDirection);
-                
-                // Shuffle directions to make it random
-                shuffleArray(possibleDirections);
-                
-                // Try each direction
-                for (const direction of possibleDirections) {
-                    if (canMove(x, y, direction)) {
-                        return direction;
-                    }
-                }
-                
-                // If no valid direction found, allow reverse direction
-                if (canMove(x, y, oppositeDirection)) {
-                    return oppositeDirection;
-                }
-                
-                // Default to current direction if all else fails
-                return currentDirection;
-            }
-            
-            function getOppositeDirection(direction) {
-                switch (direction) {
-                    case 'up': return 'down';
-                    case 'down': return 'up';
-                    case 'left': return 'right';
-                    case 'right': return 'left';
-                    default: return direction;
-                }
-            }
-            
-            function getAlternateDirection(direction) {
-                const oppositeDir = getOppositeDirection(direction);
-                const options = ['up', 'down', 'left', 'right'].filter(dir => dir !== direction && dir !== oppositeDir);
-                return options[Math.floor(Math.random() * options.length)];
-            }
-            
-            function shuffleArray(array) {
-                for (let i = array.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [array[i], array[j]] = [array[j], array[i]];
-                }
-            }
-            
+
             function checkGhostCollisions() {
                 const pacmanX = parseInt(pacman.style.left) + pacmanSize / 2;
                 const pacmanY = parseInt(pacman.style.top) + pacmanSize / 2;
-                
+
                 for (const ghost of ghosts) {
-                    if (ghost.inHouse) continue; // Skip ghosts still in house
-                    
                     const ghostX = ghost.x + ghostSize / 2;
                     const ghostY = ghost.y + ghostSize / 2;
-                    
+
                     const distance = Math.sqrt(
                         Math.pow(pacmanX - ghostX, 2) + Math.pow(pacmanY - ghostY, 2)
                     );
-                    
+
                     if (distance < (pacmanSize / 2) + (ghostSize / 2)) {
                         // Ghost collision
                         gameOver(false);
@@ -736,21 +472,21 @@
                     }
                 }
             }
-            
+
             function gameOver(win) {
                 gameRunning = false;
                 clearInterval(gameInterval);
-                
+
                 finalScoreDisplay.textContent = `Your score: ${score}`;
                 gameOverScreen.style.display = 'block';
-                
+
                 if (win) {
                     document.querySelector('#game-over h2').textContent = 'YOU WIN!';
                 } else {
                     document.querySelector('#game-over h2').textContent = 'GAME OVER';
                 }
             }
-            
+
             function handleKeyPress(e) {
                 switch (e.key) {
                     case 'ArrowUp':
@@ -767,7 +503,7 @@
                         break;
                 }
             }
-    });
-  </script>
+        });
+    </script>
 </body>
 </html>
