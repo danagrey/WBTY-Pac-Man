@@ -20,8 +20,8 @@
     #game-container {
       position: relative;
       /* Increased to make the maze larger */
-      width: 560px;
-      height: 620px;
+      width: 600px;
+      height: 660px;
       border: 4px solid #00F;
       background-color: #000;
     }
@@ -34,8 +34,8 @@
 
     .pacman {
       position: absolute;
-      width: 40px;
-      height: 40px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       z-index: 2;
       background-color: transparent;
@@ -45,8 +45,8 @@
 
     .ghost {
       position: absolute;
-      width: 40px;
-      height: 40px;
+      width: 20px;
+      height: 20px;
       background-color: transparent;
       background-image: none; /* This will be set by JavaScript */
       background-size: cover;
@@ -55,8 +55,8 @@
 
     .pellet {
       position: absolute;
-      width: 15px;
-      height: 15px;
+      width: 8px;
+      height: 8px;
       background-color: transparent;
       background-image: url('icon/book.png');
       background-size: cover;
@@ -126,17 +126,18 @@
       let gameRunning = false;
       let gameInterval;
 
-      // Increased container dimensions to allow a bigger maze
-      const containerWidth = 560;
-      const containerHeight = 620;
-      const pacmanSize = 30;
-      const pelletSize = 10;
-      const ghostSize = 30;
+      // Updated container dimensions to make a larger maze
+      const containerWidth = 600;
+      const containerHeight = 660;
+      const pacmanSize = 20;
+      const pelletSize = 8;
+      const ghostSize = 20;
+      const wallThickness = 8;
 
       // Direction variables
       let direction = 'right';
       let nextDirection = 'right';
-      const speed = 3;
+      const speed = 2;
       const ghostSpeed = 2;
 
       // Ghost colors (unused in code but kept for reference)
@@ -165,34 +166,31 @@
         walls = [];
         gameRunning = true;
 
-        // Create pacman
-        pacman = document.createElement('div');
-        pacman.className = 'pacman';
-        // Place Pac-Man in a more central/bottom area so it can move freely
-        pacman.style.left = '270px';
-        pacman.style.top = '520px';
-        gameContainer.appendChild(pacman);
-
-        // Create walls
+        // Create maze walls
         createWalls();
 
         // Create pellets
         createPellets();
 
-        // Create ghosts
+        // Create pacman in a position where it can move freely
+        pacman = document.createElement('div');
+        pacman.className = 'pacman';
+        pacman.style.left = '300px';
+        pacman.style.top = '520px';
+        gameContainer.appendChild(pacman);
+
+        // Create ghosts in positions where they can move freely
         createGhosts();
 
         // Start game loop
         if (gameInterval) clearInterval(gameInterval);
-        gameInterval = setInterval(updateGame, 30);
+        gameInterval = setInterval(updateGame, 20);
 
         // Listen for keyboard input
         document.addEventListener('keydown', handleKeyPress);
       }
 
       function createWalls() {
-        const wallThickness = 10;
-
         // Outer border walls
         // Top
         createWall(0, 0, containerWidth, wallThickness);
@@ -203,64 +201,122 @@
         // Right
         createWall(containerWidth - wallThickness, 0, wallThickness, containerHeight);
 
-        // Below is a rough layout with multiple internal walls
-        // to approximate the classic Pac-Man shape. Feel free to tweak
-        // or add more walls for an even more accurate layout!
+        // Create tunnels on left and right for wrapping
+        createWall(0, 300, 100, wallThickness); // top of left tunnel
+        createWall(0, 340, 100, wallThickness); // bottom of left tunnel
+        createWall(containerWidth - 100, 300, 100, wallThickness); // top of right tunnel
+        createWall(containerWidth - 100, 340, 100, wallThickness); // bottom of right tunnel
 
-        // Top row area
-        createWall(50, 50, 180, wallThickness);
-        createWall(330, 50, 180, wallThickness);
-        createWall(50, 50, wallThickness, 100);
-        createWall(510, 50, wallThickness, 100);
+        // Top section
+        // Top left corner block
+        createWall(40, 40, 80, wallThickness); // horizontal top
+        createWall(40, 40, wallThickness, 80); // vertical left
+        
+        // Top right corner block
+        createWall(containerWidth - 120, 40, 80, wallThickness); // horizontal top
+        createWall(containerWidth - 40, 40, wallThickness, 80); // vertical right
+        
+        // Top T shapes
+        createWall(160, 40, 80, wallThickness); // horizontal top left
+        createWall(200, 40, wallThickness, 80); // vertical top left
+        
+        createWall(containerWidth - 240, 40, 80, wallThickness); // horizontal top right
+        createWall(containerWidth - 200, 40, wallThickness, 80); // vertical top right
+        
+        // Middle top section
+        createWall(280, 40, 40, wallThickness); // horizontal top middle
+        createWall(300, 40, wallThickness, 80); // vertical top middle
 
-        // Next row
-        createWall(100, 100, 120, wallThickness);
-        createWall(340, 100, 120, wallThickness);
-        createWall(100, 100, wallThickness, 60);
-        createWall(460, 100, wallThickness, 60);
-
-        // Middle top “U” shape
-        createWall(200, 150, 160, wallThickness);
-        createWall(200, 150, wallThickness, 60);
-        createWall(360, 150, wallThickness, 60);
-
-        // Left T-shape
-        createWall(50, 200, 150, wallThickness);
-        createWall(50, 200, wallThickness, 100);
-
-        // Right T-shape
-        createWall(360, 200, 150, wallThickness);
-        createWall(510, 200, wallThickness, 100);
-
-        // Ghost house area (center box)
-        // Walls around the ghosts
-        createWall(200, 220, wallThickness, 80); // left
-        createWall(320, 220, wallThickness, 80); // right
-        createWall(200, 220, 120, wallThickness); // top
-        // leave a small opening for ghosts at bottom
-        createWall(200, 300, 120, wallThickness);
-
-        // Lower left area
-        createWall(50, 320, 150, wallThickness);
-        createWall(50, 320, wallThickness, 100);
-
-        // Lower right area
-        createWall(360, 320, 150, wallThickness);
-        createWall(510, 320, wallThickness, 100);
-
-        // Bottom region
-        createWall(100, 420, 120, wallThickness);
-        createWall(340, 420, 120, wallThickness);
-        createWall(100, 420, wallThickness, 60);
-        createWall(460, 420, wallThickness, 60);
-
-        // Big horizontal near the bottom
-        createWall(50, 480, 180, wallThickness);
-        createWall(330, 480, 180, wallThickness);
-
-        // A few stray columns near bottom corners
-        createWall(50, 480, wallThickness, 90);
-        createWall(510, 480, wallThickness, 90);
+        // Upper middle section - left side
+        createWall(80, 120, 80, wallThickness); // horizontal
+        createWall(80, 120, wallThickness, 80); // vertical
+        createWall(40, 160, 80, wallThickness); // lower horizontal
+        
+        // Upper middle section - right side
+        createWall(containerWidth - 160, 120, 80, wallThickness); // horizontal
+        createWall(containerWidth - 80, 120, wallThickness, 80); // vertical
+        createWall(containerWidth - 120, 160, 80, wallThickness); // lower horizontal
+        
+        // T shapes in upper middle
+        createWall(200, 120, 60, wallThickness); // horizontal left
+        createWall(200, 120, wallThickness, 120); // vertical left
+        
+        createWall(containerWidth - 260, 120, 60, wallThickness); // horizontal right
+        createWall(containerWidth - 200, 120, wallThickness, 120); // vertical right
+        
+        // Middle section
+        createWall(280, 160, 40, wallThickness); // upper horizontal
+        createWall(300, 160, wallThickness, 40); // upper vertical
+        
+        // Ghost area (middle) - redesigned without central house
+        createWall(240, 200, 120, wallThickness); // upper horizontal
+        createWall(240, 200, wallThickness, 40); // left vertical
+        createWall(360, 200, wallThickness, 40); // right vertical
+        
+        // Lower middle section
+        createWall(120, 240, 80, wallThickness); // horizontal left
+        createWall(120, 240, wallThickness, 80); // vertical left
+        
+        createWall(containerWidth - 200, 240, 80, wallThickness); // horizontal right
+        createWall(containerWidth - 120, 240, wallThickness, 80); // vertical right
+        
+        // Bottom T shapes
+        createWall(40, 320, 80, wallThickness); // horizontal left
+        createWall(80, 320, wallThickness, 80); // vertical left
+        
+        createWall(containerWidth - 120, 320, 80, wallThickness); // horizontal right
+        createWall(containerWidth - 80, 320, wallThickness, 80); // vertical right
+        
+        // Lower section
+        createWall(160, 320, 80, wallThickness); // horizontal left
+        createWall(200, 320, wallThickness, 80); // vertical left
+        
+        createWall(containerWidth - 240, 320, 80, wallThickness); // horizontal right
+        createWall(containerWidth - 200, 320, wallThickness, 80); // vertical right
+        
+        // Bottom section
+        createWall(280, 320, 40, wallThickness); // horizontal middle
+        createWall(300, 320, wallThickness, 80); // vertical middle
+        
+        // Bottom left L shape
+        createWall(40, 400, 120, wallThickness); // horizontal
+        createWall(40, 400, wallThickness, 80); // vertical
+        createWall(80, 440, 40, wallThickness); // small horizontal
+        
+        // Bottom right L shape
+        createWall(containerWidth - 160, 400, 120, wallThickness); // horizontal
+        createWall(containerWidth - 40, 400, wallThickness, 80); // vertical
+        createWall(containerWidth - 120, 440, 40, wallThickness); // small horizontal
+        
+        // Bottom T shapes
+        createWall(160, 400, 40, wallThickness); // horizontal left
+        createWall(200, 400, wallThickness, 80); // vertical left
+        
+        createWall(containerWidth - 200, 400, 40, wallThickness); // horizontal right
+        createWall(containerWidth - 200, 400, wallThickness, 80); // vertical right
+        
+        // Bottom central section
+        createWall(240, 400, 120, wallThickness); // horizontal 
+        createWall(240, 440, 120, wallThickness); // lower horizontal
+        
+        // Very bottom section
+        createWall(40, 480, 80, wallThickness); // left horizontal
+        createWall(80, 480, wallThickness, 80); // left vertical
+        
+        createWall(containerWidth - 120, 480, 80, wallThickness); // right horizontal
+        createWall(containerWidth - 80, 480, wallThickness, 80); // right vertical
+        
+        createWall(160, 480, 80, wallThickness); // middle left horizontal
+        createWall(200, 480, wallThickness, 80); // middle left vertical
+        
+        createWall(containerWidth - 240, 480, 80, wallThickness); // middle right horizontal
+        createWall(containerWidth - 200, 480, wallThickness, 80); // middle right vertical
+        
+        createWall(280, 480, 40, wallThickness); // center horizontal
+        createWall(300, 480, wallThickness, 80); // center vertical
+        
+        // Bottom row
+        createWall(40, 560, 520, wallThickness); // bottom horizontal
       }
 
       function createWall(x, y, width, height) {
@@ -276,11 +332,11 @@
 
       function createPellets() {
         // Create a grid of pellets, avoiding walls
-        const gridSize = 40;
+        const gridSize = 20;
 
-        for (let x = 30; x < containerWidth; x += gridSize) {
-          for (let y = 30; y < containerHeight; y += gridSize) {
-            // Check if position collides with a wall
+        for (let x = 20; x < containerWidth; x += gridSize) {
+          for (let y = 20; y < containerHeight; y += gridSize) {
+            // Skip areas where walls are
             if (!isCollidingWithWalls(x, y, pelletSize, pelletSize)) {
               createPellet(x, y);
             }
@@ -303,12 +359,12 @@
       }
 
       function createGhosts() {
-        // Place ghosts near the center “ghost house” region
+        // Place ghosts in different areas of the maze
         const positions = [
-          { x: 220, y: 250 },
-          { x: 260, y: 250 },
-          { x: 300, y: 250 },
-          { x: 260, y: 280 } // one just below
+          { x: 280, y: 240 },  // center
+          { x: 320, y: 240 },  // center
+          { x: 240, y: 240 },  // center
+          { x: 300, y: 280 }   // slightly below center
         ];
 
         for (let i = 0; i < 4; i++) {
@@ -396,9 +452,17 @@
             break;
           case 'left':
             newX -= speed;
+            // Handle tunnel wrap on left side
+            if (newX < -pacmanSize && newY > 300 && newY < 340) {
+              newX = containerWidth;
+            }
             break;
           case 'right':
             newX += speed;
+            // Handle tunnel wrap on right side
+            if (newX > containerWidth && newY > 300 && newY < 340) {
+              newX = -pacmanSize;
+            }
             break;
         }
 
@@ -457,6 +521,31 @@
             ghost.direction = getRandomDirection();
           }
 
+          // Also try to change direction at intersections
+          if (Math.random() < 0.1) {
+            // Check for possible directions at current position
+            const possibleDirections = [];
+            
+            // Check each direction
+            if (!isCollidingWithWalls(ghost.x, ghost.y - ghostSpeed, ghostSize, ghostSize)) {
+              possibleDirections.push('up');
+            }
+            if (!isCollidingWithWalls(ghost.x, ghost.y + ghostSpeed, ghostSize, ghostSize)) {
+              possibleDirections.push('down');
+            }
+            if (!isCollidingWithWalls(ghost.x - ghostSpeed, ghost.y, ghostSize, ghostSize)) {
+              possibleDirections.push('left');
+            }
+            if (!isCollidingWithWalls(ghost.x + ghostSpeed, ghost.y, ghostSize, ghostSize)) {
+              possibleDirections.push('right');
+            }
+            
+            // If there are multiple possible directions, maybe choose a new one
+            if (possibleDirections.length > 1) {
+              ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+            }
+          }
+
           // Move ghost in current direction
           switch (ghost.direction) {
             case 'up':
@@ -467,9 +556,17 @@
               break;
             case 'left':
               newX -= ghostSpeed;
+              // Handle tunnel wrap on left side
+              if (newX < -ghostSize && newY > 300 && newY < 340) {
+                newX = containerWidth;
+              }
               break;
             case 'right':
               newX += ghostSpeed;
+              // Handle tunnel wrap on right side
+              if (newX > containerWidth && newY > 300 && newY < 340) {
+                newX = -ghostSize;
+              }
               break;
           }
 
