@@ -88,7 +88,7 @@
         #ghost-door {
             position: absolute;
             width: 20px;
-            height: 2px;
+            height: 3px;
             background-color: #FFA500;
             top: 260px;
             left: 270px;
@@ -153,14 +153,16 @@
             let walls = [];
             let gameRunning = false;
             let gameInterval;
+            let ghostHouse;
             
             const containerWidth = 560;
             const containerHeight = 620;
             const cellSize = 20; // Size of one maze cell
-            const pacmanSize = 20;
+            const wallThickness = 6; // Make walls thinner
+            const pacmanSize = 18; // Make pacman slightly smaller
             const pelletSize = 8;
             const powerPelletSize = 12;
-            const ghostSize = 20;
+            const ghostSize = 18; // Make ghosts slightly smaller
             
             // Direction variables
             let direction = 'right';
@@ -176,36 +178,35 @@
             restartButton.addEventListener('click', startGame);
             
             // Maze definition as a 2D array
-            // 0: empty path, 1: wall, 2: pellet, 3: power pellet, 4: ghost house
+            // 0: empty path, 1: wall, 2: pellet, 3: power pellet, 4: ghost house, 5: ghost door
             const mazeTemplate = [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
                 [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,3,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,3,1],
+                [1,3,1,0,0,1,2,1,0,0,0,1,2,1,1,2,1,0,0,0,1,2,1,0,0,1,3,1],
                 [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
                 [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
                 [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
+                [1,2,1,0,0,1,2,1,1,2,1,0,0,0,0,0,0,1,2,1,1,2,1,0,0,1,2,1],
                 [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,0,0,0,0,0],
+                [1,1,1,1,1,1,2,1,1,0,0,0,0,1,1,0,0,0,0,1,1,2,1,1,1,1,1,1],
+                [0,0,0,0,0,1,2,1,1,0,1,1,0,1,1,0,1,1,0,1,1,2,1,0,0,0,0,0],
+                [0,0,0,0,0,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,0,0,0,0,0],
+                [0,0,0,0,0,1,2,1,1,0,1,0,4,4,4,4,0,1,0,1,1,2,1,0,0,0,0,0],
+                [1,1,1,1,1,1,2,1,1,0,1,0,4,4,4,4,0,1,0,1,1,2,1,1,1,1,1,1],
+                [0,0,0,0,0,0,2,0,0,0,1,0,4,4,4,4,0,1,0,0,0,2,0,0,0,0,0,0],
+                [1,1,1,1,1,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,1,1,1,1,1],
+                [0,0,0,0,0,1,2,1,1,0,1,1,1,1,5,1,1,1,0,1,1,2,1,0,0,0,0,0],
                 [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,4,4,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,0,2,0,0,0,1,4,4,4,4,4,4,1,0,0,0,2,0,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
                 [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
                 [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
                 [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
+                [1,2,1,0,0,1,2,1,0,0,0,1,2,1,1,2,1,0,0,0,1,2,1,0,0,1,2,1],
                 [1,3,2,2,1,1,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,1,1,2,2,3,1],
                 [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
+                [1,2,2,2,1,1,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,1,1,2,2,2,1],
+                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
+                [1,2,1,0,0,0,2,0,0,0,0,0,2,1,1,2,0,0,0,0,0,2,0,0,0,1,2,1],
                 [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ];
@@ -230,15 +231,15 @@
                 // Create the maze based on the template
                 createMaze();
                 
+                // Create ghost house
+                createGhostHouse();
+                
                 // Create pacman
                 pacman = document.createElement('div');
                 pacman.className = 'pacman';
                 pacman.style.left = `${14 * cellSize}px`;
                 pacman.style.top = `${23 * cellSize}px`;
                 gameContainer.appendChild(pacman);
-                
-                // Create ghost house
-                createGhostHouse();
                 
                 // Create ghosts
                 createGhosts();
@@ -259,8 +260,9 @@
                         const cellY = y * cellSize;
                         
                         if (cell === 1) {
-                            // Wall
-                            createWall(cellX, cellY, cellSize, cellSize);
+                            // Wall - create as smaller than the full cell
+                            const padding = (cellSize - wallThickness) / 2;
+                            createWall(cellX + padding, cellY + padding, wallThickness, wallThickness);
                         } else if (cell === 2) {
                             // Regular pellet
                             createPellet(cellX + (cellSize - pelletSize) / 2, cellY + (cellSize - pelletSize) / 2);
@@ -273,13 +275,24 @@
             }
             
             function createGhostHouse() {
-                const ghostHouse = document.createElement('div');
-                ghostHouse.id = 'ghost-house';
-                gameContainer.appendChild(ghostHouse);
+                ghostHouse = {
+                    x: 240,
+                    y: 260,
+                    width: 80,
+                    height: 40,
+                    doorX: 270,
+                    doorY: 260,
+                    doorWidth: 20,
+                    doorHeight: 3
+                };
                 
-                const ghostDoor = document.createElement('div');
-                ghostDoor.id = 'ghost-door';
-                gameContainer.appendChild(ghostDoor);
+                const houseElement = document.createElement('div');
+                houseElement.id = 'ghost-house';
+                gameContainer.appendChild(houseElement);
+                
+                const doorElement = document.createElement('div');
+                doorElement.id = 'ghost-door';
+                gameContainer.appendChild(doorElement);
             }
             
             function createWall(x, y, width, height) {
@@ -329,10 +342,10 @@
             function createGhosts() {
                 // Position ghosts in the ghost house
                 const positions = [
-                    { x: 240, y: 260 },  // Center ghost house
+                    { x: 260, y: 280 },  // Inside ghost house
+                    { x: 280, y: 280 },
                     { x: 260, y: 260 },
-                    { x: 280, y: 260 },
-                    { x: 300, y: 260 }
+                    { x: 280, y: 260 }
                 ];
                 
                 // Ghost images
@@ -351,7 +364,7 @@
                         element: ghost,
                         direction: getRandomDirection(),
                         inHouse: true,
-                        releaseTime: i * 5000 // Release ghosts at intervals
+                        releaseTime: i * 3000 // Release ghosts faster
                     });
                 }
             }
@@ -392,10 +405,15 @@
                 
                 ghosts.forEach((ghost, index) => {
                     if (ghost.inHouse && currentTime - gameStartTime > ghost.releaseTime) {
+                        // Release the ghost from the house
                         ghost.inHouse = false;
-                        // Move ghost out of house
-                        ghost.y = 220;
+                        
+                        // Move ghost out of house through the door
+                        ghost.x = ghostHouse.doorX;
+                        ghost.y = ghostHouse.doorY - ghostSize;
+                        ghost.element.style.left = `${ghost.x}px`;
                         ghost.element.style.top = `${ghost.y}px`;
+                        ghost.direction = 'up';
                     }
                 });
             }
@@ -461,6 +479,7 @@
             }
             
             function isCollidingWithWalls(x, y, width, height) {
+                // Check collision with all walls
                 for (const wall of walls) {
                     if (
                         x < wall.x + wall.width &&
@@ -471,6 +490,31 @@
                         return true;
                     }
                 }
+                
+                // Check if trying to enter ghost house (except ghosts)
+                if (width === pacmanSize) {  // This is Pac-Man
+                    const ghostHouseRect = {
+                        x: ghostHouse.x,
+                        y: ghostHouse.y,
+                        width: ghostHouse.width,
+                        height: ghostHouse.height
+                    };
+                    
+                    if (
+                        x < ghostHouseRect.x + ghostHouseRect.width &&
+                        x + width > ghostHouseRect.x &&
+                        y < ghostHouseRect.y + ghostHouseRect.height &&
+                        y + height > ghostHouseRect.y &&
+                        // Exception for the door area
+                        !(x + width/2 >= ghostHouse.doorX && 
+                          x + width/2 <= ghostHouse.doorX + ghostHouse.doorWidth && 
+                          y <= ghostHouse.doorY && 
+                          y + height >= ghostHouse.doorY)
+                    ) {
+                        return true;
+                    }
+                }
+                
                 return false;
             }
             
@@ -585,16 +629,16 @@
                     
                     switch (dir) {
                         case 'up':
-                            testY -= cellSize;
+                            testY -= cellSize / 2;
                             break;
                         case 'down':
-                            testY += cellSize;
+                            testY += cellSize / 2;
                             break;
                         case 'left':
-                            testX -= cellSize;
+                            testX -= cellSize / 2;
                             break;
                         case 'right':
-                            testX += cellSize;
+                            testX += cellSize / 2;
                             break;
                     }
                     
@@ -729,7 +773,7 @@
                         Math.pow(pacmanX - ghostX, 2) + Math.pow(pacmanY - ghostY, 2)
                     );
                     
-                    if (distance < (pacmanSize / 2) + (ghostSize / 2)) {
+                    if (distance < (pacmanSize / 2) + (ghostSize / 2) - 2) { // Smaller collision radius for better gameplay
                         // Ghost collision
                         gameOver(false);
                         return;
@@ -755,15 +799,19 @@
                 switch (e.key) {
                     case 'ArrowUp':
                         nextDirection = 'up';
+                        e.preventDefault(); // Prevent page scrolling
                         break;
                     case 'ArrowDown':
                         nextDirection = 'down';
+                        e.preventDefault();
                         break;
                     case 'ArrowLeft':
                         nextDirection = 'left';
+                        e.preventDefault();
                         break;
                     case 'ArrowRight':
                         nextDirection = 'right';
+                        e.preventDefault();
                         break;
                 }
             }
