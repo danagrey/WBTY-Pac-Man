@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Pac-Man Game</title>
+    <title>Simple Pac-Man Game</title>
     <style>
         body {
             display: flex;
@@ -33,19 +33,19 @@
 
         .pacman {
             position: absolute;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             z-index: 2;
             background-color: transparent;
-            background-image: url('/api/placeholder/30/30');
+            background-image: url('icon/wpface.png');
             background-size: cover;
         }
 
         .ghost {
             position: absolute;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             background-color: transparent;
             background-image: none; /* This will be set by JavaScript */
             background-size: cover;
@@ -54,25 +54,11 @@
 
         .pellet {
             position: absolute;
-            width: 8px;
-            height: 8px;
-            background-color: #FFFF00;
-            border-radius: 50%;
-        }
-
-        .power-pellet {
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            background-color: #FFFF00;
-            border-radius: 50%;
-            animation: blink 0.5s infinite;
-        }
-
-        @keyframes blink {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
+            width: 15px;
+            height: 15px;
+            background-color: transparent;
+            background-image: url('icon/book.png');
+            background-size: cover;
         }
 
         .wall {
@@ -92,7 +78,6 @@
             padding: 20px;
             border-radius: 10px;
             display: none;
-            z-index: 10;
         }
 
         button {
@@ -136,72 +121,25 @@
             let pacman;
             let ghosts = [];
             let pellets = [];
-            let powerPellets = [];
             let walls = [];
             let gameRunning = false;
             let gameInterval;
-            let isPowerMode = false;
-            let powerModeTimeout;
 
-            const containerWidth = 560;
-            const containerHeight = 620;
-            const pacmanSize = 30;
-            const pelletSize = 8;
-            const powerPelletSize = 16;
-            const ghostSize = 30;
-            const cellSize = 20; // Size of grid cells
+            const containerWidth = 560; // Increased size
+            const containerHeight = 620; // Increased size
+            const pacmanSize = 40; // Keep original size
+            const pelletSize = 15; // Keep original size
+            const ghostSize = 40; // Keep original size
+            const wallThickness = 10; // Wall thickness
 
             // Direction variables
             let direction = 'right';
             let nextDirection = 'right';
-            const speed = 2;
-            const ghostSpeed = 1.5;
-            const frightenedGhostSpeed = 1;
+            const speed = 3;
+            const ghostSpeed = 2;
 
-            // Maze layout (0: empty, 1: wall, 2: pellet, 3: power pellet, 4: ghost home)
-            const mazeLayout = [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,3,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,3,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,4,4,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,0,2,0,0,0,1,4,4,4,4,4,4,1,0,0,0,2,0,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-                [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
-                [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-                [1,3,2,2,1,1,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,1,1,2,2,3,1],
-                [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-                [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-                [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-                [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ];
-
-            // Ghost colors and images
-            const ghostImages = [
-                '/api/placeholder/30/30', // Red ghost (Blinky)
-                '/api/placeholder/30/30', // Pink ghost (Pinky)
-                '/api/placeholder/30/30', // Cyan ghost (Inky)
-                '/api/placeholder/30/30'  // Orange ghost (Clyde)
-            ];
-            
-            const ghostFrightenedImage = '/api/placeholder/30/30'; // Blue ghost when frightened
+            // Ghost colors
+            const ghostColors = ['#FF0000', '#00FFFF', '#FFB8FF', '#FFB852'];
 
             // Start and restart game
             startButton.addEventListener('click', startGame);
@@ -223,59 +161,118 @@
                 scoreDisplay.textContent = `Score: ${score}`;
                 ghosts = [];
                 pellets = [];
-                powerPellets = [];
                 walls = [];
                 gameRunning = true;
-                isPowerMode = false;
-                if (powerModeTimeout) clearTimeout(powerModeTimeout);
 
-                // Create maze
-                createMaze();
-
-                // Create pacman in the starting position
+                // Create pacman
                 pacman = document.createElement('div');
                 pacman.className = 'pacman';
-                // Place Pacman at around position 14, 23 (typical starting position)
-                const pacmanStartX = 14 * cellSize - pacmanSize / 2;
-                const pacmanStartY = 23 * cellSize - pacmanSize / 2;
-                pacman.style.left = `${pacmanStartX}px`;
-                pacman.style.top = `${pacmanStartY}px`;
+                pacman.style.left = '40px';
+                pacman.style.top = '40px';
                 gameContainer.appendChild(pacman);
 
-                // Create ghosts at the ghost house
+                // Create walls (complex maze)
+                createComplexMaze();
+
+                // Create pellets
+                createPellets();
+
+                // Create ghosts
                 createGhosts();
 
                 // Start game loop
                 if (gameInterval) clearInterval(gameInterval);
-                gameInterval = setInterval(updateGame, 16); // ~60fps
+                gameInterval = setInterval(updateGame, 30);
 
                 // Listen for keyboard input
                 document.addEventListener('keydown', handleKeyPress);
             }
 
-            function createMaze() {
-                for (let y = 0; y < mazeLayout.length; y++) {
-                    for (let x = 0; x < mazeLayout[y].length; x++) {
-                        const cellType = mazeLayout[y][x];
-                        const cellX = x * cellSize;
-                        const cellY = y * cellSize;
+            function createComplexMaze() {
+                // Create border walls
+                // Top wall
+                createWall(0, 0, containerWidth, wallThickness);
+                // Bottom wall
+                createWall(0, containerHeight - wallThickness, containerWidth, wallThickness);
+                // Left wall
+                createWall(0, 0, wallThickness, containerHeight);
+                // Right wall
+                createWall(containerWidth - wallThickness, 0, wallThickness, containerHeight);
 
-                        if (cellType === 1) {
-                            // Wall
-                            createWall(cellX, cellY, cellSize, cellSize);
-                        } else if (cellType === 2) {
-                            // Regular pellet
-                            const pelletX = cellX + (cellSize - pelletSize) / 2;
-                            const pelletY = cellY + (cellSize - pelletSize) / 2;
-                            createPellet(pelletX, pelletY);
-                        } else if (cellType === 3) {
-                            // Power pellet
-                            const powerPelletX = cellX + (cellSize - powerPelletSize) / 2;
-                            const powerPelletY = cellY + (cellSize - powerPelletSize) / 2;
-                            createPowerPellet(powerPelletX, powerPelletY);
-                        }
-                    }
-                }
+                // Create tunnel openings (remove parts of left/right walls)
+                // Left tunnel opening
+                removeWall(0, 280, wallThickness, 60);
+                // Right tunnel opening
+                removeWall(containerWidth - wallThickness, 280, wallThickness, 60);
+
+                // Create complex inner walls
+                
+                // Top section
+                createWall(60, 60, 80, wallThickness); // Top left horizontal
+                createWall(180, 60, 200, wallThickness); // Top center horizontal
+                createWall(420, 60, 80, wallThickness); // Top right horizontal
+                
+                createWall(60, 60, wallThickness, 80); // Top left vertical
+                createWall(140, 60, wallThickness, 80); // Top left-center vertical
+                createWall(180, 60, wallThickness, 80); // Top center-left vertical
+                createWall(380, 60, wallThickness, 80); // Top center-right vertical
+                createWall(420, 60, wallThickness, 80); // Top right-center vertical
+                createWall(500, 60, wallThickness, 80); // Top right vertical
+                
+                // T-shapes in upper section
+                createWall(220, 180, 120, wallThickness); // Upper T horizontal
+                createWall(280, 180, wallThickness, 100); // Upper T vertical
+                
+                // Middle section - ghost house
+                createWall(220, 240, 120, wallThickness); // Ghost house top
+                createWall(220, 240, wallThickness, 100); // Ghost house left
+                createWall(340, 240, wallThickness, 100); // Ghost house right
+                createWall(220, 340, 50, wallThickness); // Ghost house bottom left
+                createWall(310, 340, 30, wallThickness); // Ghost house bottom right
+                
+                // Left and right mid-section walls
+                createWall(60, 180, 80, wallThickness); // Mid left horizontal top
+                createWall(420, 180, 80, wallThickness); // Mid right horizontal top
+                
+                createWall(60, 180, wallThickness, 160); // Mid left vertical
+                createWall(140, 180, wallThickness, 160); // Mid left-center vertical
+                createWall(420, 180, wallThickness, 160); // Mid right-center vertical
+                createWall(500, 180, wallThickness, 160); // Mid right vertical
+                
+                createWall(60, 340, 80, wallThickness); // Mid left horizontal bottom
+                createWall(420, 340, 80, wallThickness); // Mid right horizontal bottom
+                
+                // Bottom section
+                createWall(60, 400, wallThickness, 160); // Bottom left vertical
+                createWall(500, 400, wallThickness, 160); // Bottom right vertical
+                
+                // L-shapes in bottom section
+                createWall(60, 400, 80, wallThickness); // Bottom left L horizontal top
+                createWall(140, 400, wallThickness, 80); // Bottom left L vertical
+                createWall(140, 480, 80, wallThickness); // Bottom left L horizontal bottom
+                
+                createWall(420, 400, 80, wallThickness); // Bottom right L horizontal top
+                createWall(420, 400, wallThickness, 80); // Bottom right L vertical
+                createWall(340, 480, 80, wallThickness); // Bottom right L horizontal bottom
+                
+                // T-shapes in bottom section
+                createWall(220, 400, 120, wallThickness); // Bottom T horizontal
+                createWall(280, 400, wallThickness, 100); // Bottom T vertical
+                
+                // Bottom walls
+                createWall(60, 560, 160, wallThickness); // Bottom left horizontal
+                createWall(340, 560, 160, wallThickness); // Bottom right horizontal
+                
+                // Extra vertical pieces
+                createWall(180, 480, wallThickness, 80); // Bottom left-center vertical
+                createWall(380, 480, wallThickness, 80); // Bottom right-center vertical
+            }
+
+            // Helper function to remove a wall (for tunnels)
+            function removeWall(x, y, width, height) {
+                // This function is used to create tunnel openings
+                // It doesn't actually remove walls, but helps track open areas
+                // when implementing tunnel warping
             }
 
             function createWall(x, y, width, height) {
@@ -294,6 +291,29 @@
                 });
             }
 
+            function createPellets() {
+                // Create a grid of pellets, avoiding walls
+                const gridSize = 40;
+
+                for (let x = 30; x < containerWidth; x += gridSize) {
+                    for (let y = 30; y < containerHeight; y += gridSize) {
+                        // Check if position collides with a wall or is in ghost house
+                        if (!isCollidingWithWalls(x, y, pelletSize, pelletSize) && 
+                            !isInGhostHouse(x, y)) {
+                            createPellet(x, y);
+                        }
+                    }
+                }
+            }
+
+            function isInGhostHouse(x, y) {
+                // Check if position is inside the ghost house
+                return (
+                    x > 220 && x < 340 &&
+                    y > 240 && y < 340
+                );
+            }
+
             function createPellet(x, y) {
                 const pellet = document.createElement('div');
                 pellet.className = 'pellet';
@@ -308,33 +328,13 @@
                 });
             }
 
-            function createPowerPellet(x, y) {
-                const powerPellet = document.createElement('div');
-                powerPellet.className = 'power-pellet';
-                powerPellet.style.left = `${x}px`;
-                powerPellet.style.top = `${y}px`;
-                gameContainer.appendChild(powerPellet);
-                powerPellets.push({
-                    x,
-                    y,
-                    element: powerPellet,
-                    eaten: false
-                });
-            }
-
             function createGhosts() {
-                // Find ghost house central position
-                const ghostHomeY = 14;
-                const ghostHomeX = 14;
-                const baseX = ghostHomeX * cellSize - ghostSize / 2;
-                const baseY = ghostHomeY * cellSize - ghostSize / 2;
-
-                // Create 4 ghosts with slight position offsets
+                // Create 4 ghosts at different positions
                 const positions = [
-                    { x: baseX - 30, y: baseY },      // Blinky
-                    { x: baseX + 30, y: baseY },      // Pinky
-                    { x: baseX, y: baseY - 15 },      // Inky
-                    { x: baseX, y: baseY + 15 }       // Clyde
+                    { x: 260, y: 280 }, // Ghost house center
+                    { x: 220, y: 280 }, // Ghost house left
+                    { x: 300, y: 280 }, // Ghost house right
+                    { x: 260, y: 240 }  // Ghost house top
                 ];
 
                 for (let i = 0; i < 4; i++) {
@@ -342,7 +342,8 @@
                     ghost.className = 'ghost';
                     ghost.style.left = `${positions[i].x}px`;
                     ghost.style.top = `${positions[i].y}px`;
-                    ghost.style.backgroundImage = `url('${ghostImages[i]}')`;
+                    ghost.style.backgroundColor = 'transparent';
+                    ghost.style.backgroundImage = `url('icon/ghost${i+1}.png')`;
                     gameContainer.appendChild(ghost);
 
                     ghosts.push({
@@ -350,8 +351,7 @@
                         y: positions[i].y,
                         element: ghost,
                         direction: getRandomDirection(),
-                        index: i,
-                        frightened: false
+                        color: ghostColors[i]
                     });
                 }
             }
@@ -369,9 +369,6 @@
 
                 // Check for pellet collisions
                 checkPelletCollisions();
-                
-                // Check for power pellet collisions
-                checkPowerPelletCollisions();
 
                 // Move ghosts
                 moveGhosts();
@@ -379,17 +376,14 @@
                 // Check for ghost collisions
                 checkGhostCollisions();
 
-                // Check if all pellets and power pellets are eaten
-                if (pellets.every(pellet => pellet.eaten) && powerPellets.every(powerPellet => powerPellet.eaten)) {
+                // Check if all pellets are eaten
+                if (pellets.every(pellet => pellet.eaten)) {
                     // You win!
                     gameOver(true);
                 }
             }
 
             function movePacman() {
-                const pacmanRect = pacman.getBoundingClientRect();
-                const gameRect = gameContainer.getBoundingClientRect();
-
                 let newX = parseInt(pacman.style.left);
                 let newY = parseInt(pacman.style.top);
 
@@ -444,16 +438,24 @@
                     pacman.style.top = `${newY}px`;
                 }
 
-                // Handle tunnel warping (if Pacman goes off one side, appear on the other)
-                const pacmanCenterX = newX + pacmanSize / 2;
-                const pacmanCenterY = newY + pacmanSize / 2;
+                // Handle tunnel warping
+                handleTunnelWarping(pacman);
+            }
 
-                // Left-right tunnel at row 14
-                if (Math.abs(pacmanCenterY - (14 * cellSize)) < pacmanSize) {
-                    if (pacmanCenterX < 0) {
-                        pacman.style.left = `${containerWidth - pacmanSize}px`;
-                    } else if (pacmanCenterX > containerWidth) {
-                        pacman.style.left = `0px`;
+            function handleTunnelWarping(entity) {
+                const x = parseInt(entity.style.left);
+                const y = parseInt(entity.style.top);
+                const entitySize = entity.className === 'pacman' ? pacmanSize : ghostSize;
+
+                // Check if entity is in the horizontal tunnel (y around 280-340)
+                if (y >= 280 && y <= 340) {
+                    // Left tunnel exit
+                    if (x < -entitySize) {
+                        entity.style.left = `${containerWidth}px`;
+                    }
+                    // Right tunnel exit
+                    else if (x > containerWidth) {
+                        entity.style.left = `${-entitySize}px`;
                     }
                 }
             }
@@ -478,11 +480,11 @@
 
                 for (const pellet of pellets) {
                     if (!pellet.eaten) {
-                        const pelletCenterX = pellet.x + pelletSize / 2;
-                        const pelletCenterY = pellet.y + pelletSize / 2;
+                        const pelletX = pellet.x + pelletSize / 2;
+                        const pelletY = pellet.y + pelletSize / 2;
 
                         const distance = Math.sqrt(
-                            Math.pow(pacmanX - pelletCenterX, 2) + Math.pow(pacmanY - pelletCenterY, 2)
+                            Math.pow(pacmanX - pelletX, 2) + Math.pow(pacmanY - pelletY, 2)
                         );
 
                         if (distance < (pacmanSize / 2) + (pelletSize / 2)) {
@@ -496,100 +498,29 @@
                 }
             }
 
-            function checkPowerPelletCollisions() {
-                const pacmanX = parseInt(pacman.style.left) + pacmanSize / 2;
-                const pacmanY = parseInt(pacman.style.top) + pacmanSize / 2;
-
-                for (const powerPellet of powerPellets) {
-                    if (!powerPellet.eaten) {
-                        const pelletCenterX = powerPellet.x + powerPelletSize / 2;
-                        const pelletCenterY = powerPellet.y + powerPelletSize / 2;
-
-                        const distance = Math.sqrt(
-                            Math.pow(pacmanX - pelletCenterX, 2) + Math.pow(pacmanY - pelletCenterY, 2)
-                        );
-
-                        if (distance < (pacmanSize / 2) + (powerPelletSize / 2)) {
-                            // Power pellet eaten
-                            powerPellet.eaten = true;
-                            powerPellet.element.style.display = 'none';
-                            score += 50;
-                            scoreDisplay.textContent = `Score: ${score}`;
-                            
-                            // Activate power mode
-                            activatePowerMode();
-                        }
-                    }
-                }
-            }
-
-            function activatePowerMode() {
-                // Clear any existing power mode
-                if (powerModeTimeout) {
-                    clearTimeout(powerModeTimeout);
-                }
-                
-                // Set power mode
-                isPowerMode = true;
-                
-                // Make all ghosts frightened
-                for (const ghost of ghosts) {
-                    ghost.frightened = true;
-                    ghost.element.style.backgroundImage = `url('${ghostFrightenedImage}')`;
-                }
-                
-                // Set timeout to end power mode
-                powerModeTimeout = setTimeout(() => {
-                    isPowerMode = false;
-                    for (const ghost of ghosts) {
-                        ghost.frightened = false;
-                        ghost.element.style.backgroundImage = `url('${ghostImages[ghost.index]}')`;
-                    }
-                }, 8000); // 8 seconds of power mode
-            }
-
             function moveGhosts() {
                 for (const ghost of ghosts) {
                     let newX = ghost.x;
                     let newY = ghost.y;
-                    
-                    // Determine ghost speed
-                    const currentGhostSpeed = ghost.frightened ? frightenedGhostSpeed : ghostSpeed;
 
                     // Occasionally change direction randomly
                     if (Math.random() < 0.02) {
                         ghost.direction = getRandomDirection();
                     }
-                    
-                    // If ghost is not frightened, sometimes try to move toward Pacman
-                    if (!ghost.frightened && Math.random() < 0.1) {
-                        const pacmanX = parseInt(pacman.style.left);
-                        const pacmanY = parseInt(pacman.style.top);
-                        
-                        // Simple AI: move in the direction of Pacman
-                        const dx = pacmanX - ghost.x;
-                        const dy = pacmanY - ghost.y;
-                        
-                        if (Math.abs(dx) > Math.abs(dy)) {
-                            ghost.direction = dx > 0 ? 'right' : 'left';
-                        } else {
-                            ghost.direction = dy > 0 ? 'down' : 'up';
-                        }
-                    }
 
                     // Move ghost in current direction
                     switch (ghost.direction) {
                         case 'up':
-                            newY -= currentGhostSpeed;
+                            newY -= ghostSpeed;
                             break;
                         case 'down':
-                            newY += currentGhostSpeed;
+                            newY += ghostSpeed;
                             break;
                         case 'left':
-                            newX -= currentGhostSpeed;
+                            newX -= ghostSpeed;
                             break;
                         case 'right':
-                            newX += currentGhostSpeed;
+                            newX += ghostSpeed;
                             break;
                     }
 
@@ -603,21 +534,12 @@
                         // Change direction if hit a wall
                         ghost.direction = getRandomDirection();
                     }
-                    
+
                     // Handle tunnel warping for ghosts
-                    const ghostCenterX = ghost.x + ghostSize / 2;
-                    const ghostCenterY = ghost.y + ghostSize / 2;
-                    
-                    // Left-right tunnel at row 14
-                    if (Math.abs(ghostCenterY - (14 * cellSize)) < ghostSize) {
-                        if (ghostCenterX < 0) {
-                            ghost.x = containerWidth - ghostSize;
-                            ghost.element.style.left = `${ghost.x}px`;
-                        } else if (ghostCenterX > containerWidth) {
-                            ghost.x = 0;
-                            ghost.element.style.left = `${ghost.x}px`;
-                        }
-                    }
+                    handleTunnelWarping(ghost.element);
+                    // Update ghost's internal position after warping
+                    ghost.x = parseInt(ghost.element.style.left);
+                    ghost.y = parseInt(ghost.element.style.top);
                 }
             }
 
@@ -625,8 +547,7 @@
                 const pacmanX = parseInt(pacman.style.left) + pacmanSize / 2;
                 const pacmanY = parseInt(pacman.style.top) + pacmanSize / 2;
 
-                for (let i = 0; i < ghosts.length; i++) {
-                    const ghost = ghosts[i];
+                for (const ghost of ghosts) {
                     const ghostX = ghost.x + ghostSize / 2;
                     const ghostY = ghost.y + ghostSize / 2;
 
@@ -635,47 +556,16 @@
                     );
 
                     if (distance < (pacmanSize / 2) + (ghostSize / 2)) {
-                        if (ghost.frightened) {
-                            // Eat the ghost
-                            score += 200;
-                            scoreDisplay.textContent = `Score: ${score}`;
-                            
-                            // Reset the ghost to the ghost house
-                            resetGhost(ghost);
-                        } else {
-                            // Ghost collision - game over
-                            gameOver(false);
-                            return;
-                        }
+                        // Ghost collision
+                        gameOver(false);
+                        return;
                     }
                 }
-            }
-            
-            function resetGhost(ghost) {
-                // Find ghost house central position
-                const ghostHomeY = 14;
-                const ghostHomeX = 14;
-                const baseX = ghostHomeX * cellSize - ghostSize / 2;
-                const baseY = ghostHomeY * cellSize - ghostSize / 2;
-                
-                // Reset position to ghost house
-                ghost.x = baseX;
-                ghost.y = baseY;
-                ghost.element.style.left = `${ghost.x}px`;
-                ghost.element.style.top = `${ghost.y}px`;
-                
-                // No longer frightened
-                ghost.frightened = false;
-                ghost.element.style.backgroundImage = `url('${ghostImages[ghost.index]}')`;
-                
-                // Random direction
-                ghost.direction = getRandomDirection();
             }
 
             function gameOver(win) {
                 gameRunning = false;
                 clearInterval(gameInterval);
-                if (powerModeTimeout) clearTimeout(powerModeTimeout);
 
                 finalScoreDisplay.textContent = `Your score: ${score}`;
                 gameOverScreen.style.display = 'block';
@@ -701,7 +591,7 @@
                     case 'ArrowRight':
                         nextDirection = 'right';
                         break;
-  }
+                }
             }
         });
     </script>
