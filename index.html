@@ -5,41 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Pac-Man Game</title>
     <style>
-        body {
+        /* Responsive container for the game */
+        .game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        body {
             margin: 0;
+            padding: 0;
             background-color: #000;
             font-family: Arial, sans-serif;
-            overflow: auto; /* Changed from hidden to allow scrolling if needed */
+            overflow: hidden;
         }
 
         #game-container {
             position: relative;
             width: 630px;
             height: 750px;
-            border: 4px solid #ff5001;
+            border: none !important;
             background-color: #000;
-            max-height: 90vh; /* Limit height to 90% of viewport height */
-            max-width: 95vw; /* Limit width to 95% of viewport width */
-            transform-origin: top center;
+            transform-origin: center;
+            /* Set max dimensions based on viewport */
+            max-width: 95vw;
+            max-height: 85vh;
         }
 
-        /* Add responsive scaling for smaller screens */
-        @media (max-height: 800px) {
+        /* Remove CSS media queries that affect scaling */
+        @media (max-height: 800px), (max-width: 700px) {
             #game-container {
-                transform: scale(0.8); /* Scale down on smaller screens */
-                margin-bottom: 50px; /* Add space at bottom */
+                /* Remove transform: scale(0.85); */
             }
         }
 
         @media (max-height: 700px) {
             #game-container {
-                transform: scale(0.7); /* Scale down further on very small screens */
-                margin-bottom: 70px;
+                /* Remove transform: scale(0.75); */
             }
         }
 
@@ -113,21 +120,46 @@
         #game-start h2 {
             white-space: nowrap;
         }
+
+        /* Create a common container for both game and border */
+        .scale-container {
+            position: relative;
+            transform-origin: center;
+            /* This will be scaled by JavaScript */
+        }
+        
+        /* Update border styles */
+        .game-border {
+            position: absolute;
+            box-sizing: content-box;
+            border: 4px solid #ff5001;
+            width: 630px;
+            height: 750px;
+            pointer-events: none;
+            /* Position exactly over game container */
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
 <body>
-    <div id="score">Books: 0</div>
-    <div id="game-container">
-        <div id="game-start">
-            <h2>PACK-MAN</h2>
-            <p>Use arrow keys to move</p>
-            <p>Collect all the books to become a bestseller!</p>
-            <button id="start-button">Let's Go!</button>
-        </div>
-        <div id="game-over">
-            <h2>GAME OVER</h2>
-            <p id="final-score">Your score: 0</p>
-            <button id="restart-button">Play Again</button>
+    <div class="game-wrapper">
+        <div id="score">Books: 0</div>
+        <div class="scale-container">
+            <div id="game-container">
+                <div id="game-start">
+                    <h2>PACK-MAN</h2>
+                    <p>Use arrow keys to move</p>
+                    <p>Collect all the books to become a bestseller!</p>
+                    <button id="start-button">Let's Go!</button>
+                </div>
+                <div id="game-over">
+                    <h2>GAME OVER</h2>
+                    <p id="final-score">Your score: 0</p>
+                    <button id="restart-button">Play Again</button>
+                </div>
+            </div>
+            <div class="game-border"></div>
         </div>
     </div>
 
@@ -997,6 +1029,36 @@
 
             // Add a frame counter
             let frameCount = 0;
+
+            // Replace the existing updateBorder function with this simpler scaling function
+            document.addEventListener('DOMContentLoaded', function() {
+                // Get elements
+                const scaleContainer = document.querySelector('.scale-container');
+                
+                function resizeGame() {
+                    // Get window dimensions
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
+                    
+                    // Calculate game dimensions with border
+                    const gameWidth = 630 + 8; // Add border width (4px on each side)
+                    const gameHeight = 750 + 8; // Add border width (4px on each side)
+                    
+                    // Calculate scale to fit the window with margin
+                    const scaleX = (windowWidth - 40) / gameWidth;
+                    const scaleY = (windowHeight - 80) / gameHeight;
+                    const scale = Math.min(scaleX, scaleY, 1); // Cap at 1 to prevent getting too big
+                    
+                    // Apply scale
+                    scaleContainer.style.transform = `scale(${scale})`;
+                    
+                    console.log(`Window size: ${windowWidth}x${windowHeight}, Scale: ${scale}`);
+                }
+                
+                // Call resize function initially and on window resize
+                window.addEventListener('resize', resizeGame);
+                resizeGame();
+            });
         });
     </script>
 </body>
