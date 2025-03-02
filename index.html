@@ -63,8 +63,8 @@
 
         .pacman {
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             z-index: 2;
             background-color: transparent;
@@ -186,7 +186,7 @@
             let direction = 'right';
             let nextDirection = 'right';
             const speed = 3;
-            const ghostSpeed = 2;
+            const ghostSpeed = 2.2;
 
             // Ghost colors
             const ghostColors = ['red', 'pink', 'cyan', 'orange'];
@@ -655,213 +655,207 @@
             }
 
             function moveGhosts() {
-                ghosts.forEach((ghost, index) => {
-                    // Current position
-                    let ghostX = ghost.x;
-                    let ghostY = ghost.y;
+                for (let i = 0; i < ghosts.length; i++) {
+                    const ghost = ghosts[i];
+                    const ghostX = parseInt(ghost.element.style.left) || 0;
+                    const ghostY = parseInt(ghost.element.style.top) || 0;
                     
-                    // Get pacman position
-                    const pacX = parseInt(pacman.style.left) || 0;
-                    const pacY = parseInt(pacman.style.top) || 0;
+                    // Set individual speeds - first ghost slightly slower
+                    const currentGhostSpeed = i === 0 ? ghostSpeed * 0.93 : ghostSpeed;
                     
-                    // Only recalculate direction every 30 frames or at junctions
-                    const shouldRecalculateDirection = 
-                        frameCount % 30 === 0 || isAtJunction(ghost);
+                    // Make the first ghost a more aggressive chaser
+                    if (i === 0) {
+                        // Keep the first ghost's chase logic unchanged
+                        const pacX = parseInt(pacman.style.left) || 0;
+                        const pacY = parseInt(pacman.style.top) || 0;
                         
-                    if (shouldRecalculateDirection) {
-                        // Possible directions
+                        // Calculate manhattan distance to pacman for each possible direction
+                        const distances = {};
                         const directions = ['up', 'down', 'left', 'right'];
-                        let possibleDirections = [];
                         
-                        // Check which directions are valid (no wall collisions)
-                        directions.forEach(dir => {
+                        // Current ghost direction (for ensuring we don't move backwards)
+                        const oppositeDir = {
+                            'up': 'down',
+                            'down': 'up',
+                            'left': 'right',
+                            'right': 'left'
+                        };
+                        
+                        // Don't allow the ghost to reverse direction (improves chase behavior)
+                        const invalidDirection = oppositeDir[ghost.direction];
+                        
+                        // Evaluate each possible direction
+                        for (const dir of directions) {
+                            // Skip opposite direction
+                            if (dir === invalidDirection && directions.length > 1) continue;
+                            
                             let testX = ghostX;
                             let testY = ghostY;
                             
                             switch (dir) {
-                                case 'up': testY -= ghostSpeed; break;
-                                case 'down': testY += ghostSpeed; break;
-                                case 'left': testX -= ghostSpeed; break;
-                                case 'right': testX += ghostSpeed; break;
+                                case 'up': testY -= currentGhostSpeed; break;
+                                case 'down': testY += currentGhostSpeed; break;
+                                case 'left': testX -= currentGhostSpeed; break;
+                                case 'right': testX += currentGhostSpeed; break;
                             }
                             
+                            // Only consider valid moves (no wall collisions)
                             if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
-                                possibleDirections.push(dir);
+                                // Calculate distance to pacman
+                                const distance = Math.abs(testX - pacX) + Math.abs(testY - pacY);
+                                distances[dir] = distance;
                             }
-                        });
+                        }
                         
-                        // Don't immediately reverse direction unless it's the only option
-                        if (possibleDirections.length > 1) {
-                            const oppositeDirections = {
+                        // Choose the direction that minimizes distance to pacman
+                        let bestDir = ghost.direction;
+                        let minDistance = Infinity;
+                        
+                        for (const dir in distances) {
+                            if (distances[dir] < minDistance) {
+                                minDistance = distances[dir];
+                                bestDir = dir;
+                            }
+                        }
+                        
+                        ghost.direction = bestDir;
+                    } else {
+                        // Improved movement logic for other ghosts
+                        
+                        // Initialize stuck detection
+                        if (!ghost.lastPosition) {
+                            ghost.lastPosition = { x: ghostX, y: ghostY };
+                            ghost.stuckCounter = 0;
+                        }
+                        
+                        // Check if ghost is stuck (hasn't moved significantly in several frames)
+                        const isStuck = Math.abs(ghost.lastPosition.x - ghostX) < 1 && 
+                                       Math.abs(ghost.lastPosition.y - ghostY) < 1;
+                        
+                        if (isStuck) {
+                            ghost.stuckCounter++;
+                        } else {
+                            ghost.stuckCounter = 0;
+                            ghost.lastPosition = { x: ghostX, y: ghostY };
+                        }
+                        
+                        // Force direction change if stuck for too long
+                        const forceDirectionChange = ghost.stuckCounter > 10;
+                        
+                        // Initialize direction change cooldown if not present
+                        if (!ghost.lastDirectionChange) ghost.lastDirectionChange = 0;
+                        ghost.lastDirectionChange++;
+                        
+                        // Only allow direction changes after a cooldown period (reduced from 30 to 15)
+                        // or immediately if the ghost is stuck
+                        const canChangeDirection = ghost.lastDirectionChange > 15 || forceDirectionChange;
+                        
+                        // Change direction at junctions, corners, or with a low random chance
+                        if (canChangeDirection && (isAtJunction(ghost) || isAtCorner(ghost) || Math.random() < 0.01 || forceDirectionChange)) {
+                            // Reset the cooldown
+                            ghost.lastDirectionChange = 0;
+                            
+                            const possibleDirections = [];
+                            const directions = ['up', 'down', 'left', 'right'];
+                            
+                            // Don't allow immediate reversals unless necessary
+                            const oppositeDir = {
                                 'up': 'down',
                                 'down': 'up',
                                 'left': 'right',
                                 'right': 'left'
                             };
                             
-                            // Remove the opposite direction if possible
-                            const oppositeDir = oppositeDirections[ghost.direction];
-                            possibleDirections = possibleDirections.filter(dir => dir !== oppositeDir);
-                        }
-                        
-                        // Each ghost has different behavior based on classic Pac-Man ghost AI
-                        // But with more random behavior to make it more balanced
-                        let newDirection;
-                        
-                        switch(index) {
-                            case 0: // Red ghost (Blinky) - Usually chases but sometimes random
-                                if (Math.random() < 0.75) { // 75% chance to chase (down from 100%)
-                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
-                                } else {
-                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                                }
-                                break;
+                            // First try all directions except the opposite
+                            for (const dir of directions) {
+                                if (dir === oppositeDir[ghost.direction] && !forceDirectionChange) continue;
                                 
-                            case 1: // Pink ghost (Pinky) - Tries to ambush but less aggressive
-                                let targetX = pacX;
-                                let targetY = pacY;
+                                let testX = ghostX;
+                                let testY = ghostY;
                                 
-                                // Target only 2 tiles ahead (down from 4)
-                                switch(direction) {
-                                    case 'up': targetY -= 2 * 30; break;
-                                    case 'down': targetY += 2 * 30; break;
-                                    case 'left': targetX -= 2 * 30; break;
-                                    case 'right': targetX += 2 * 30; break;
+                                // Look ahead a shorter distance for more precise corner navigation
+                                const lookAheadDistance = forceDirectionChange ? 2 : 3;
+                                
+                                switch (dir) {
+                                    case 'up': testY -= ghostSpeed * lookAheadDistance; break;
+                                    case 'down': testY += ghostSpeed * lookAheadDistance; break;
+                                    case 'left': testX -= ghostSpeed * lookAheadDistance; break;
+                                    case 'right': testX += ghostSpeed * lookAheadDistance; break;
                                 }
                                 
-                                if (Math.random() < 0.6) { // 60% chance to ambush
-                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, targetX, targetY, possibleDirections);
-                                } else {
-                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
+                                    possibleDirections.push(dir);
                                 }
-                                break;
-                                
-                            case 2: // Cyan ghost (Inky) - Mostly random now
-                                if (Math.random() < 0.4) { // 40% chance to chase (down from 70%)
-                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
-                                } else { // 60% chance to move randomly
-                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                                }
-                                break;
-                                
-                            case 3: // Orange ghost (Clyde) - Even more shy
-                                const distance = Math.sqrt(Math.pow(pacX - ghostX, 2) + Math.pow(pacY - ghostY, 2));
-                                
-                                if (distance > 300) { // Only chase when very far away (up from 200)
-                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
-                                } else { // Runs away or moves randomly when closer
-                                    if (Math.random() < 0.5) {
-                                        // Target opposite corner
-                                        newDirection = getDirectionTowardsPacman(ghostX, ghostY, 0, 0, possibleDirections);
-                                    } else {
-                                        newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                                    }
-                                }
-                                break;
-                        }
-                        
-                        // Ensure we have a valid direction
-                        if (!newDirection && possibleDirections.length > 0) {
-                            newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                        }
-                        
-                        if (newDirection) {
-                            ghost.direction = newDirection;
+                            }
+                            
+                            // If no forward directions are available, allow turning back
+                            if (possibleDirections.length === 0) {
+                                possibleDirections.push(oppositeDir[ghost.direction]);
+                            }
+                            
+                            // If ghost is stuck, choose a random direction with no preference
+                            if (forceDirectionChange && possibleDirections.length > 0) {
+                                ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                ghost.stuckCounter = 0; // Reset stuck counter
+                            }
+                            // Otherwise, choose a direction with preference to current direction if possible
+                            else if (possibleDirections.includes(ghost.direction) && Math.random() < 0.6 && !isAtCorner(ghost)) {
+                                // Keep current direction with 60% probability if it's still valid and not at a corner
+                            } else if (possibleDirections.length > 0) {
+                                ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                            }
                         }
                     }
                     
-                    // Calculate new position based on current direction
-                    let newX = ghost.x;
-                    let newY = ghost.y;
+                    // Move the ghost in the current direction using the appropriate speed
+                    let newX = ghostX;
+                    let newY = ghostY;
                     
                     switch (ghost.direction) {
-                        case 'up': newY -= ghostSpeed; break;
-                        case 'down': newY += ghostSpeed; break;
-                        case 'left': newX -= ghostSpeed; break;
-                        case 'right': newX += ghostSpeed; break;
+                        case 'up': newY -= currentGhostSpeed; break;
+                        case 'down': newY += currentGhostSpeed; break;
+                        case 'left': newX -= currentGhostSpeed; break;
+                        case 'right': newX += currentGhostSpeed; break;
                     }
                     
-                    // IMPORTANT: Check for wall collisions before updating position
+                    // Check for wall collisions
                     if (!isCollidingWithWalls(newX, newY, ghostSize, ghostSize)) {
-                        // Only update position if there's no wall collision
+                        ghost.element.style.left = `${newX}px`;
+                        ghost.element.style.top = `${newY}px`;
                         ghost.x = newX;
                         ghost.y = newY;
-                        ghost.element.style.left = `${ghost.x}px`;
-                        ghost.element.style.top = `${ghost.y}px`;
                     } else {
-                        // If there's a wall, immediately recalculate direction
-                        const directions = ['up', 'down', 'left', 'right'];
-                        let possibleDirections = [];
+                        // If we hit a wall, try a different direction immediately
+                        ghost.lastDirectionChange = 20; // Force immediate direction change
+                        ghost.stuckCounter += 2; // Increment stuck counter faster when hitting walls
                         
-                        // Get possible directions that don't collide with walls
-                        directions.forEach(dir => {
+                        const possibleDirections = [];
+                        const directions = ['up', 'down', 'left', 'right'];
+                        
+                        // Try all directions except the current one
+                        for (const dir of directions) {
+                            if (dir === ghost.direction) continue;
+                            
                             let testX = ghostX;
                             let testY = ghostY;
                             
                             switch (dir) {
-                                case 'up': testY -= ghostSpeed; break;
-                                case 'down': testY += ghostSpeed; break;
-                                case 'left': testX -= ghostSpeed; break;
-                                case 'right': testX += ghostSpeed; break;
+                                case 'up': testY -= currentGhostSpeed; break;
+                                case 'down': testY += currentGhostSpeed; break;
+                                case 'left': testX -= currentGhostSpeed; break;
+                                case 'right': testX += currentGhostSpeed; break;
                             }
                             
                             if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
                                 possibleDirections.push(dir);
                             }
-                        });
+                        }
                         
-                        // Choose a random valid direction
                         if (possibleDirections.length > 0) {
                             ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
                         }
                     }
-                    
-                    // Handle wrapping around the screen (only if not colliding with walls)
-                    if (ghost.x < -ghostSize) {
-                        ghost.x = containerWidth;
-                        ghost.element.style.left = `${ghost.x}px`;
-                    } else if (ghost.x > containerWidth) {
-                        ghost.x = -ghostSize;
-                        ghost.element.style.left = `${ghost.x}px`;
-                    }
-                });
-            }
-
-            // Helper function to determine the best direction to move towards Pac-Man
-            function getDirectionTowardsPacman(ghostX, ghostY, targetX, targetY, possibleDirections) {
-                if (possibleDirections.length === 0) return null;
-                
-                // Calculate distance for each possible direction
-                const distances = {};
-                
-                possibleDirections.forEach(dir => {
-                    let newX = ghostX;
-                    let newY = ghostY;
-                    
-                    switch (dir) {
-                        case 'up': newY -= ghostSpeed; break;
-                        case 'down': newY += ghostSpeed; break;
-                        case 'left': newX -= ghostSpeed; break;
-                        case 'right': newX += ghostSpeed; break;
-                    }
-                    
-                    // Calculate Manhattan distance
-                    const distance = Math.abs(targetX - newX) + Math.abs(targetY - newY);
-                    distances[dir] = distance;
-                });
-                
-                // Find direction with minimum distance
-                let minDistance = Infinity;
-                let bestDirection = null;
-                
-                for (const [dir, distance] of Object.entries(distances)) {
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        bestDirection = dir;
-                    }
                 }
-                
-                return bestDirection;
             }
 
             function checkGhostCollisions() {
@@ -1010,6 +1004,50 @@
                 
                 // A junction has more than 2 available directions
                 return availableDirections > 2;
+            }
+
+            // Add this new function to detect if a ghost is at a corner
+            function isAtCorner(ghost) {
+                const directions = ['up', 'down', 'left', 'right'];
+                let availableDirections = 0;
+                let blockedDirections = [];
+                
+                // Check each direction
+                for (const dir of directions) {
+                    let testX = ghost.x;
+                    let testY = ghost.y;
+                    
+                    switch (dir) {
+                        case 'up': testY -= ghostSpeed * 2; break;
+                        case 'down': testY += ghostSpeed * 2; break;
+                        case 'left': testX -= ghostSpeed * 2; break;
+                        case 'right': testX += ghostSpeed * 2; break;
+                    }
+                    
+                    if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
+                        availableDirections++;
+                    } else {
+                        blockedDirections.push(dir);
+                    }
+                }
+                
+                // A corner has exactly 2 available directions and 2 blocked directions
+                // Additionally, the blocked directions should be adjacent (like up+right, not up+down)
+                if (availableDirections === 2 && blockedDirections.length === 2) {
+                    // Check if blocked directions are adjacent (form a corner)
+                    const adjacentPairs = [
+                        ['up', 'left'], ['up', 'right'], 
+                        ['down', 'left'], ['down', 'right']
+                    ];
+                    
+                    for (const pair of adjacentPairs) {
+                        if (blockedDirections.includes(pair[0]) && blockedDirections.includes(pair[1])) {
+                            return true; // This is a corner
+                        }
+                    }
+                }
+                
+                return false;
             }
 
             // Add a frame counter
