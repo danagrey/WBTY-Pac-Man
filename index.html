@@ -10,11 +10,11 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background-color: #000;
             font-family: Arial, sans-serif;
-            overflow: hidden;
+            overflow: auto; /* Changed from hidden to allow scrolling if needed */
         }
 
         #game-container {
@@ -23,6 +23,24 @@
             height: 750px;
             border: 4px solid #ff5001;
             background-color: #000;
+            max-height: 90vh; /* Limit height to 90% of viewport height */
+            max-width: 95vw; /* Limit width to 95% of viewport width */
+            transform-origin: top center;
+        }
+
+        /* Add responsive scaling for smaller screens */
+        @media (max-height: 800px) {
+            #game-container {
+                transform: scale(0.8); /* Scale down on smaller screens */
+                margin-bottom: 50px; /* Add space at bottom */
+            }
+        }
+
+        @media (max-height: 700px) {
+            #game-container {
+                transform: scale(0.7); /* Scale down further on very small screens */
+                margin-bottom: 70px;
+            }
         }
 
         #score {
@@ -171,24 +189,20 @@
             console.log("Start music element:", startMusic);
             console.log("Audio source:", startMusic.querySelector('source').src);
 
-            // Try to play start music with a user interaction
+            // Set up the start music to loop and play continuously
+            startMusic.loop = true; // Ensure it loops
+            startMusic.volume = 0.5; // Set to 50% volume
+
+            // Play the music when user interacts with the page
             document.addEventListener('click', function() {
-                if (!gameRunning) {
-                    console.log("Attempting to play start music after user click");
-                    startMusic.volume = 0.5; // Set volume to 50%
+                // Try to play the music if it's not already playing
+                if (startMusic.paused) {
+                    console.log("Starting background music");
                     startMusic.play()
-                        .then(() => console.log("Start music playing successfully"))
+                        .then(() => console.log("Music playing successfully"))
                         .catch(e => console.log("Audio play failed:", e));
                 }
-            }, { once: true }); // Only trigger once
-
-            // Also try to play on page load, but this might be blocked by browsers
-            window.addEventListener('load', function() {
-                console.log("Window loaded, attempting to play music");
-                startMusic.play()
-                    .then(() => console.log("Start music playing successfully"))
-                    .catch(e => console.log("Audio play failed:", e));
-            });
+            }, { once: true }); // Only need to trigger this once
 
             // Start and restart game
             startButton.addEventListener('click', startGame);
@@ -198,10 +212,6 @@
             gameStartScreen.style.display = 'block';
 
             function startGame() {
-                // Stop start music when game begins
-                startMusic.pause();
-                startMusic.currentTime = 0;
-
                 // Reset game state
                 gameContainer.innerHTML = '';
                 gameContainer.appendChild(gameOverScreen);
@@ -633,94 +643,168 @@
             }
 
             function moveGhosts() {
-                ghosts.forEach(ghost => {
+                ghosts.forEach((ghost, index) => {
                     // Current position
                     let ghostX = ghost.x;
                     let ghostY = ghost.y;
                     
-                    // Possible directions
-                    const directions = ['up', 'down', 'left', 'right'];
-                    let possibleDirections = [];
+                    // Get pacman position
+                    const pacX = parseInt(pacman.style.left) || 0;
+                    const pacY = parseInt(pacman.style.top) || 0;
                     
-                    // Check which directions are valid (no wall collisions)
-                    directions.forEach(dir => {
-                        let testX = ghostX;
-                        let testY = ghostY;
+                    // Only recalculate direction every 30 frames or at junctions
+                    const shouldRecalculateDirection = 
+                        frameCount % 30 === 0 || isAtJunction(ghost);
                         
-                        switch (dir) {
-                            case 'up':
-                                testY -= ghostSpeed;
+                    if (shouldRecalculateDirection) {
+                        // Possible directions
+                        const directions = ['up', 'down', 'left', 'right'];
+                        let possibleDirections = [];
+                        
+                        // Check which directions are valid (no wall collisions)
+                        directions.forEach(dir => {
+                            let testX = ghostX;
+                            let testY = ghostY;
+                            
+                            switch (dir) {
+                                case 'up': testY -= ghostSpeed; break;
+                                case 'down': testY += ghostSpeed; break;
+                                case 'left': testX -= ghostSpeed; break;
+                                case 'right': testX += ghostSpeed; break;
+                            }
+                            
+                            if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
+                                possibleDirections.push(dir);
+                            }
+                        });
+                        
+                        // Don't immediately reverse direction unless it's the only option
+                        if (possibleDirections.length > 1) {
+                            const oppositeDirections = {
+                                'up': 'down',
+                                'down': 'up',
+                                'left': 'right',
+                                'right': 'left'
+                            };
+                            
+                            // Remove the opposite direction if possible
+                            const oppositeDir = oppositeDirections[ghost.direction];
+                            possibleDirections = possibleDirections.filter(dir => dir !== oppositeDir);
+                        }
+                        
+                        // Each ghost has different behavior based on classic Pac-Man ghost AI
+                        // But with more random behavior to make it more balanced
+                        let newDirection;
+                        
+                        switch(index) {
+                            case 0: // Red ghost (Blinky) - Usually chases but sometimes random
+                                if (Math.random() < 0.75) { // 75% chance to chase (down from 100%)
+                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
+                                } else {
+                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                }
                                 break;
-                            case 'down':
-                                testY += ghostSpeed;
+                                
+                            case 1: // Pink ghost (Pinky) - Tries to ambush but less aggressive
+                                let targetX = pacX;
+                                let targetY = pacY;
+                                
+                                // Target only 2 tiles ahead (down from 4)
+                                switch(direction) {
+                                    case 'up': targetY -= 2 * 30; break;
+                                    case 'down': targetY += 2 * 30; break;
+                                    case 'left': targetX -= 2 * 30; break;
+                                    case 'right': targetX += 2 * 30; break;
+                                }
+                                
+                                if (Math.random() < 0.6) { // 60% chance to ambush
+                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, targetX, targetY, possibleDirections);
+                                } else {
+                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                }
                                 break;
-                            case 'left':
-                                testX -= ghostSpeed;
+                                
+                            case 2: // Cyan ghost (Inky) - Mostly random now
+                                if (Math.random() < 0.4) { // 40% chance to chase (down from 70%)
+                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
+                                } else { // 60% chance to move randomly
+                                    newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                }
                                 break;
-                            case 'right':
-                                testX += ghostSpeed;
+                                
+                            case 3: // Orange ghost (Clyde) - Even more shy
+                                const distance = Math.sqrt(Math.pow(pacX - ghostX, 2) + Math.pow(pacY - ghostY, 2));
+                                
+                                if (distance > 300) { // Only chase when very far away (up from 200)
+                                    newDirection = getDirectionTowardsPacman(ghostX, ghostY, pacX, pacY, possibleDirections);
+                                } else { // Runs away or moves randomly when closer
+                                    if (Math.random() < 0.5) {
+                                        // Target opposite corner
+                                        newDirection = getDirectionTowardsPacman(ghostX, ghostY, 0, 0, possibleDirections);
+                                    } else {
+                                        newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+                                    }
+                                }
                                 break;
                         }
                         
-                        if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
-                            possibleDirections.push(dir);
+                        // Ensure we have a valid direction
+                        if (!newDirection && possibleDirections.length > 0) {
+                            newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
                         }
-                    });
-                    
-                    // If current direction is valid, keep it with higher probability
-                    if (possibleDirections.includes(ghost.direction)) {
-                        possibleDirections.push(ghost.direction, ghost.direction); // Add twice to increase probability
+                        
+                        if (newDirection) {
+                            ghost.direction = newDirection;
+                        }
                     }
                     
-                    // If no valid directions, reverse direction
-                    if (possibleDirections.length === 0) {
-                        switch (ghost.direction) {
-                            case 'up': ghost.direction = 'down'; break;
-                            case 'down': ghost.direction = 'up'; break;
-                            case 'left': ghost.direction = 'right'; break;
-                            case 'right': ghost.direction = 'left'; break;
-                        }
+                    // Calculate new position based on current direction
+                    let newX = ghost.x;
+                    let newY = ghost.y;
+                    
+                    switch (ghost.direction) {
+                        case 'up': newY -= ghostSpeed; break;
+                        case 'down': newY += ghostSpeed; break;
+                        case 'left': newX -= ghostSpeed; break;
+                        case 'right': newX += ghostSpeed; break;
+                    }
+                    
+                    // IMPORTANT: Check for wall collisions before updating position
+                    if (!isCollidingWithWalls(newX, newY, ghostSize, ghostSize)) {
+                        // Only update position if there's no wall collision
+                        ghost.x = newX;
+                        ghost.y = newY;
+                        ghost.element.style.left = `${ghost.x}px`;
+                        ghost.element.style.top = `${ghost.y}px`;
                     } else {
-                        // Randomly choose a direction from valid options
-                        if (Math.random() < 0.05) { // 5% chance to change direction randomly
+                        // If there's a wall, immediately recalculate direction
+                        const directions = ['up', 'down', 'left', 'right'];
+                        let possibleDirections = [];
+                        
+                        // Get possible directions that don't collide with walls
+                        directions.forEach(dir => {
+                            let testX = ghostX;
+                            let testY = ghostY;
+                            
+                            switch (dir) {
+                                case 'up': testY -= ghostSpeed; break;
+                                case 'down': testY += ghostSpeed; break;
+                                case 'left': testX -= ghostSpeed; break;
+                                case 'right': testX += ghostSpeed; break;
+                            }
+                            
+                            if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
+                                possibleDirections.push(dir);
+                            }
+                        });
+                        
+                        // Choose a random valid direction
+                        if (possibleDirections.length > 0) {
                             ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
                         }
                     }
                     
-                    // Move ghost in the chosen direction
-                    switch (ghost.direction) {
-                        case 'up':
-                            ghost.y -= ghostSpeed;
-                            break;
-                        case 'down':
-                            ghost.y += ghostSpeed;
-                            break;
-                        case 'left':
-                            ghost.x -= ghostSpeed;
-                            break;
-                        case 'right':
-                            ghost.x += ghostSpeed;
-                            break;
-                    }
-                    
-                    // Check for wall collisions and adjust if needed
-                    if (isCollidingWithWalls(ghost.x, ghost.y, ghostSize, ghostSize)) {
-                        // Revert movement
-                        switch (ghost.direction) {
-                            case 'up': ghost.y += ghostSpeed; break;
-                            case 'down': ghost.y -= ghostSpeed; break;
-                            case 'left': ghost.x += ghostSpeed; break;
-                            case 'right': ghost.x -= ghostSpeed; break;
-                        }
-                        // Choose a new direction
-                        ghost.direction = getRandomDirection();
-                    }
-                    
-                    // Update ghost element position
-                    ghost.element.style.left = `${ghost.x}px`;
-                    ghost.element.style.top = `${ghost.y}px`;
-                    
-                    // Handle wrapping around the screen
+                    // Handle wrapping around the screen (only if not colliding with walls)
                     if (ghost.x < -ghostSize) {
                         ghost.x = containerWidth;
                         ghost.element.style.left = `${ghost.x}px`;
@@ -731,16 +815,71 @@
                 });
             }
 
+            // Helper function to determine the best direction to move towards Pac-Man
+            function getDirectionTowardsPacman(ghostX, ghostY, targetX, targetY, possibleDirections) {
+                if (possibleDirections.length === 0) return null;
+                
+                // Calculate distance for each possible direction
+                const distances = {};
+                
+                possibleDirections.forEach(dir => {
+                    let newX = ghostX;
+                    let newY = ghostY;
+                    
+                    switch (dir) {
+                        case 'up': newY -= ghostSpeed; break;
+                        case 'down': newY += ghostSpeed; break;
+                        case 'left': newX -= ghostSpeed; break;
+                        case 'right': newX += ghostSpeed; break;
+                    }
+                    
+                    // Calculate Manhattan distance
+                    const distance = Math.abs(targetX - newX) + Math.abs(targetY - newY);
+                    distances[dir] = distance;
+                });
+                
+                // Find direction with minimum distance
+                let minDistance = Infinity;
+                let bestDirection = null;
+                
+                for (const [dir, distance] of Object.entries(distances)) {
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        bestDirection = dir;
+                    }
+                }
+                
+                return bestDirection;
+            }
+
             function checkGhostCollisions() {
                 const pacX = parseInt(pacman.style.left) || 0;
                 const pacY = parseInt(pacman.style.top) || 0;
                 
+                // Create a smaller hitbox for Pac-Man by adding a buffer
+                const buffer = 10; // Pixels of buffer around the edge
+                const smallerPacmanHitbox = {
+                    x: pacX + buffer,
+                    y: pacY + buffer,
+                    width: pacmanSize - (buffer * 2),
+                    height: pacmanSize - (buffer * 2)
+                };
+                
                 ghosts.forEach(ghost => {
+                    // Create a smaller hitbox for the ghost
+                    const ghostHitbox = {
+                        x: ghost.x + buffer,
+                        y: ghost.y + buffer,
+                        width: ghostSize - (buffer * 2),
+                        height: ghostSize - (buffer * 2)
+                    };
+                    
+                    // Check collision with the smaller hitboxes
                     if (
-                        pacX < ghost.x + ghostSize &&
-                        pacX + pacmanSize > ghost.x &&
-                        pacY < ghost.y + ghostSize &&
-                        pacY + pacmanSize > ghost.y
+                        smallerPacmanHitbox.x < ghostHitbox.x + ghostHitbox.width &&
+                        smallerPacmanHitbox.x + smallerPacmanHitbox.width > ghostHitbox.x &&
+                        smallerPacmanHitbox.y < ghostHitbox.y + ghostHitbox.height &&
+                        smallerPacmanHitbox.y + smallerPacmanHitbox.height > ghostHitbox.y
                     ) {
                         // Collision with ghost
                         gameOver(false);
@@ -760,6 +899,9 @@
                 
                 if (win) {
                     document.querySelector('#game-over h2').textContent = 'Congrats! You\'re a Bestseller!';
+                    // Stop the background music
+                    startMusic.pause();
+                    startMusic.currentTime = 0;
                     // Play win sound
                     winSound.play().catch(e => console.log("Audio play failed:", e));
                 } else {
@@ -816,6 +958,41 @@
                     }
                 }
                 return false;
+            }
+
+            // Helper function to check if ghost is at a junction (intersection)
+            function isAtJunction(ghost) {
+                const cellWidth = containerWidth / 19;
+                const cellHeight = containerHeight / 22;
+                
+                // Check if ghost is near the center of a cell
+                const isCenteredX = Math.abs((ghost.x % cellWidth) - cellWidth/2) < ghostSpeed;
+                const isCenteredY = Math.abs((ghost.y % cellHeight) - cellHeight/2) < ghostSpeed;
+                
+                if (!isCenteredX || !isCenteredY) return false;
+                
+                // Count available directions
+                const directions = ['up', 'down', 'left', 'right'];
+                let availableDirections = 0;
+                
+                directions.forEach(dir => {
+                    let testX = ghost.x;
+                    let testY = ghost.y;
+                    
+                    switch (dir) {
+                        case 'up': testY -= ghostSpeed * 2; break;
+                        case 'down': testY += ghostSpeed * 2; break;
+                        case 'left': testX -= ghostSpeed * 2; break;
+                        case 'right': testX += ghostSpeed * 2; break;
+                    }
+                    
+                    if (!isCollidingWithWalls(testX, testY, ghostSize, ghostSize)) {
+                        availableDirections++;
+                    }
+                });
+                
+                // A junction has more than 2 available directions
+                return availableDirections > 2;
             }
 
             // Add a frame counter
