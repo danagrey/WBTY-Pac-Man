@@ -15,6 +15,8 @@
             background-color: #000;
             font-family: Arial, sans-serif;
             overflow: auto; /* Allow scrolling if needed */
+            padding-bottom: 20px !important; /* Force padding at bottom */
+            overflow-y: auto !important; /* Always allow vertical scrolling */
         }
 
         #game-container {
@@ -26,6 +28,8 @@
             max-height: 95vh; /* Increase from 90% to 95% of viewport height */
             max-width: 95vw; /* Keep width at 95% of viewport width */
             transform-origin: top center;
+            outline: 1px solid #000; /* Add an outline to make border more visible */
+            overflow: visible !important; /* Make sure nothing is cut off */
         }
 
         /* Refined media queries for MacBook sizes */
@@ -39,9 +43,12 @@
         @media (max-height: 768px) {
             /* Target 13" MacBook specifically */
             #game-container {
-                transform: scale(0.85); /* More precise scaling for 13" */
-                margin-bottom: 10px;
-                margin-top: -20px; /* Shift up slightly */
+                transform: scale(0.83);
+                margin-bottom: 30px !important; /* Increased bottom margin */
+            }
+            
+            #score {
+                margin-bottom: 5px; /* Reduce score margin to give more space */
             }
         }
 
